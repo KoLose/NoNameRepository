@@ -1,0 +1,6 @@
+@WorldSkillsAPI_HostAddress = http://localhost:5293
+
+GET {{WorldSkillsAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

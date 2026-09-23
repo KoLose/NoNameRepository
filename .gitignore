@@ -1,0 +1,30 @@
+# Build results
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/
+
+# NuGet
+*.nupkg
+packages/
+
+# Конфигурация с секретами (если у тебя там пароль от БД)
+appsettings.Development.json
+appsettings.Production.json
+
+# ОС
+.DS_Store
+Thumbs.db
+
+# Логи
+*.log
