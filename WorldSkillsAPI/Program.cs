@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using WorldSkillsAPI.DatabaseContext;
+using WorldSkillsAPI.Hubs;
 using WorldSkillsAPI.Interfaces;
 using WorldSkillsAPI.Services;
 using WorldSkillsAPI.UniversalMethods;
@@ -47,10 +48,11 @@ builder.Services.AddScoped<IGradeService, GradeService>();
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<IAssignmentService, AssignmentService>();
 builder.Services.AddScoped<IAnswerService, AnswerService>();
-builder.Services.AddScoped<IGradeService, GradeService>();
 builder.Services.AddScoped<IDirectoryService, DirectoryService>();
 
 builder.Services.AddSingleton<jwtGenerator>();
+
+builder.Services.AddSignalR();
 
 var app = builder.Build();
 
@@ -66,5 +68,7 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapHub<LessonChatHub>("/hubs/lessonChat");
 
 app.Run();

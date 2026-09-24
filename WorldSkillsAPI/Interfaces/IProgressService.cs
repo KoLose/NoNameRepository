@@ -1,13 +1,12 @@
-﻿using WorldSkillsAPI.Requests;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 
 namespace WorldSkillsAPI.Interfaces
 {
     public interface IProgressService
     {
-        Task<IActionResult> GetUserProgressAsync(int userId);              // весь прогресс пользователя
-        Task<IActionResult> GetCourseProgressAsync(int userId, int courseId); // прогресс по курсу
-        Task<IActionResult> StartLessonAsync(int userId, int lessonId);    // начать урок
-        Task<IActionResult> CompleteLessonAsync(int userId, int lessonId); // завершить урок
+        Task<IActionResult> GetUserProgressAsync(string token);                       // весь прогресс пользователя
+        Task<IActionResult> GetCourseProgressAsync(string token, int courseId);       // прогресс по курсу
+        Task<IActionResult> StartLessonAsync(string token, int lessonId);             // начать урок
+        Task<IActionResult> CompleteLessonAsync(string token, int lessonId);          // завершить урок
     }
 }

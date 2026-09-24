@@ -5,9 +5,10 @@ namespace WorldSkillsAPI.Interfaces
 {
     public interface IGradeService
     {
-        Task<IActionResult> GetGradesByAnswerAsync(int answerId);          // оценки ответа
-        Task<IActionResult> GetGradesByMentorAsync(int mentorId);          // оценки, выставленные наставником
-        Task<IActionResult> CreateGradeAsync(GradeRequest request, int mentorId); // выставить оценку
-        Task<IActionResult> UpdateGradeAsync(int id, GradeRequest request); // изменить оценку
+        Task<IActionResult> GetGradesByAnswerAsync(int answerId);                       // оценки ответа
+        Task<IActionResult> GetGradesByMentorAsync(string token);                       // оценки, выставленные наставником
+        Task<IActionResult> GetMyGradesAsync(string token);                             // оценки пользователя
+        Task<IActionResult> CreateGradeAsync(GradeRequest request, string token);       // выставить оценку
+        Task<IActionResult> UpdateGradeAsync(int id, GradeRequest request, string token); // изменить свою оценку
     }
 }

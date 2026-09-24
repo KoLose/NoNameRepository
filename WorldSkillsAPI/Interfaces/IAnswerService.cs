@@ -5,10 +5,10 @@ namespace WorldSkillsAPI.Interfaces
 {
     public interface IAnswerService
     {
-        Task<IActionResult> GetAnswersByAssignmentAsync(int assignmentId); // ответы по заданию
-        Task<IActionResult> GetAnswersByUserAsync(int userId);             // ответы пользователя
-        Task<IActionResult> GetAnswerByIdAsync(int id);                    // ответ по id
-        Task<IActionResult> SubmitAnswerAsync(AnswerRequest request, int userId); // отправить ответ
-        Task<IActionResult> UpdateAnswerAsync(int id, AnswerRequest request);     // обновить ответ
+        Task<IActionResult> GetAnswersByAssignmentAsync(int assignmentId);          // ответы по заданию
+        Task<IActionResult> GetAnswersByUserAsync(string token);                    // мои ответы
+        Task<IActionResult> GetAnswerByIdAsync(int id, string token);               // ответ по id
+        Task<IActionResult> SubmitAnswerAsync(AnswerRequest request, string token); // отправить ответ
+        Task<IActionResult> UpdateAnswerAsync(int id, AnswerRequest request, string token); // обновить ответ
     }
 }
