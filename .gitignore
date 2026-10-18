@@ -28,3 +28,6 @@ Thumbs.db
 
 # Логи
 *.log
+bin/
+obj/
+*.csproj.user
