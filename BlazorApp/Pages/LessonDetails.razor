@@ -1,0 +1,182 @@
+@page "/lessons/{Id:int}"
+@attribute [Authorize]
+@using BlazorApp.ApiRequest
+@using BlazorApp.ApiRequest.Models
+@using BlazorApp.Services
+@inject ApiRequest Request
+@inject AuthService AuthService
+
+<PageTitle>@(string.IsNullOrWhiteSpace(lesson.name) ? "Урок" : lesson.name)</PageTitle>
+
+@if (isLoading)
+{
+    <h1>Урок</h1>
+    <p>Загрузка урока...</p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <p><a href="/courses">Назад к каталогу</a></p>
+    <h1>Урок</h1>
+    <p>@errorMessage</p>
+    <button type="button" @onclick="LoadLesson">Повторить</button>
+}
+else
+{
+    <p><a href="@($"/courses/{lesson.courseId}")">Назад к курсу</a></p>
+
+    <h1>@lesson.name</h1>
+    <p>Курс: @lesson.courseName</p>
+    <p>Урок @lesson.position</p>
+
+    <section>
+        <h2>Прогресс</h2>
+
+        @if (isProgressLoading)
+        {
+            <p>Загрузка прогресса...</p>
+        }
+        else
+        {
+            <p>Статус: @progressStatusName</p>
+
+            <button type="button"
+                    @onclick="StartLesson"
+                    disabled="@(isUpdatingProgress || progressStatusId != StatusNotStarted)">
+                Начать урок
+            </button>
+            <button type="button"
+                    @onclick="CompleteLesson"
+                    disabled="@(isUpdatingProgress || progressStatusId != StatusInProgress)">
+                Завершить урок
+            </button>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(progressMessage))
+        {
+            <p>@progressMessage</p>
+        }
+    </section>
+
+    <section>
+        <h2>Материал урока</h2>
+        <p>@lesson.content</p>
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(lesson.videoUrl))
+    {
+        <section>
+            <h2>Видео</h2>
+            <p>
+                <a href="@lesson.videoUrl" target="_blank" rel="noopener noreferrer">
+                    Открыть видео
+                </a>
+            </p>
+        </section>
+    }
+}
+
+@code {
+    private const int StatusNotStarted = 1;
+    private const int StatusInProgress = 2;
+    private const int StatusCompleted = 3;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    private LessonItem lesson = new();
+    private string errorMessage = "";
+    private string progressMessage = "";
+    private bool isLoading = true;
+    private bool isProgressLoading;
+    private bool isUpdatingProgress;
+    private int progressStatusId = StatusNotStarted;
+    private string progressStatusName = "Не начат";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadLesson();
+    }
+
+    private async Task LoadLesson()
+    {
+        isLoading = true;
+        errorMessage = "";
+
+        var response = await Request.GetLesson(Id);
+        if (response.status)
+        {
+            lesson = response.lesson;
+            await LoadProgress();
+        }
+        else
+        {
+            lesson = new LessonItem();
+            errorMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось загрузить урок. Проверьте доступность API."
+                : response.message;
+        }
+
+        isLoading = false;
+    }
+
+    private async Task LoadProgress()
+    {
+        isProgressLoading = true;
+
+        var response = await Request.GetCourseProgress(lesson.courseId, AuthService.Token);
+        if (response.status)
+        {
+            var lessonProgress = response.progress.FirstOrDefault(item => item.lessonId == Id);
+            progressStatusId = lessonProgress?.statusId ?? StatusNotStarted;
+            progressStatusName = lessonProgress?.statusName ?? "Не начат";
+        }
+        else
+        {
+            progressStatusId = StatusNotStarted;
+            progressStatusName = "Не удалось загрузить статус";
+            progressMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось загрузить прогресс."
+                : response.message;
+        }
+
+        isProgressLoading = false;
+    }
+
+    private async Task StartLesson()
+    {
+        if (isUpdatingProgress || progressStatusId != StatusNotStarted)
+            return;
+
+        isUpdatingProgress = true;
+        progressMessage = "";
+
+        var response = await Request.StartLesson(Id, AuthService.Token);
+        progressMessage = response.status
+            ? response.message
+            : string.IsNullOrWhiteSpace(response.message) ? "Не удалось начать урок." : response.message;
+
+        if (response.status)
+            await LoadProgress();
+
+        isUpdatingProgress = false;
+    }
+
+    private async Task CompleteLesson()
+    {
+        if (isUpdatingProgress || progressStatusId != StatusInProgress)
+            return;
+
+        isUpdatingProgress = true;
+        progressMessage = "";
+
+        var response = await Request.CompleteLesson(Id, AuthService.Token);
+        progressMessage = response.status
+            ? response.message
+            : string.IsNullOrWhiteSpace(response.message) ? "Не удалось завершить урок." : response.message;
+
+        if (response.status)
+            await LoadProgress();
+
+        isUpdatingProgress = false;
+    }
+}
