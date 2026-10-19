@@ -55,7 +55,7 @@ namespace WorldSkillsAPI.Controllers
 
         [HttpGet]
         [Route("Favorites")]
-        [RoleAuthorized]
+        [RoleAuthorized(1)]
         public async Task<IActionResult> Favorites()
         {
             var token = Request.Headers["Authorization"].FirstOrDefault();
@@ -64,7 +64,7 @@ namespace WorldSkillsAPI.Controllers
 
         [HttpPost]
         [Route("AddFavorite/{courseId}")]
-        [RoleAuthorized]
+        [RoleAuthorized(1)]
         public async Task<IActionResult> AddFavorite(int courseId)
         {
             var token = Request.Headers["Authorization"].FirstOrDefault();
@@ -73,7 +73,7 @@ namespace WorldSkillsAPI.Controllers
 
         [HttpDelete]
         [Route("RemoveFavorite/{courseId}")]
-        [RoleAuthorized]
+        [RoleAuthorized(1)]
         public async Task<IActionResult> RemoveFavorite(int courseId)
         {
             var token = Request.Headers["Authorization"].FirstOrDefault();

@@ -15,7 +15,7 @@ namespace WorldSkillsAPI.Controllers
 
         [HttpGet]
         [Route("MyProgress")]
-        [RoleAuthorized]
+        [RoleAuthorized(1)]
         public async Task<IActionResult> MyProgress()
         {
             var token = Request.Headers["Authorization"].FirstOrDefault();
@@ -24,7 +24,7 @@ namespace WorldSkillsAPI.Controllers
 
         [HttpGet]
         [Route("CourseProgress/{courseId}")]
-        [RoleAuthorized]
+        [RoleAuthorized(1)]
         public async Task<IActionResult> CourseProgress(int courseId)
         {
             var token = Request.Headers["Authorization"].FirstOrDefault();
@@ -33,7 +33,7 @@ namespace WorldSkillsAPI.Controllers
 
         [HttpPost]
         [Route("StartLesson/{lessonId}")]
-        [RoleAuthorized]
+        [RoleAuthorized(1)]
         public async Task<IActionResult> StartLesson(int lessonId)
         {
             var token = Request.Headers["Authorization"].FirstOrDefault();
@@ -42,7 +42,7 @@ namespace WorldSkillsAPI.Controllers
 
         [HttpPost]
         [Route("CompleteLesson/{lessonId}")]
-        [RoleAuthorized]
+        [RoleAuthorized(1)]
         public async Task<IActionResult> CompleteLesson(int lessonId)
         {
             var token = Request.Headers["Authorization"].FirstOrDefault();

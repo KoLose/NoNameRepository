@@ -1,13 +1,17 @@
 ﻿@page "/"
 @attribute [Authorize]
-@using BlazorApp.ApiRequest
-@using BlazorApp.ApiRequest.Models
+@using BlazorApp.Services
+@inject AuthService AuthService
+@inject NavigationManager Navigation
 
-<PageTitle>Home</PageTitle>
+<PageTitle>SkillMate</PageTitle>
 
-<h1>Hello, world!</h1>
+<p>Перенаправление...</p>
 
 @code {
-
-    
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthService.InitializeAsync();
+        Navigation.NavigateTo(AuthService.RoleId == 2 ? "/mentor/courses" : "/courses");
+    }
 }

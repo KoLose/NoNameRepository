@@ -45,5 +45,14 @@ namespace WorldSkillsAPI.Controllers
             var token = Request.Headers["Authorization"].FirstOrDefault();
             return await _userService.GetProfileAsync(token);
         }
+
+        [HttpPut]
+        [Route("Profile")]
+        [RoleAuthorized]
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest profile)
+        {
+            var token = Request.Headers["Authorization"].FirstOrDefault() ?? "";
+            return await _userService.UpdateProfileAsync(token, profile);
+        }
     }
 }
