@@ -29,6 +29,7 @@ else
             <h2>@course.name</h2>
             <p>@course.description</p>
             <p>Наставник: @course.mentorName</p>
+            <p><a href="@($"/courses/{course.id}")">Открыть курс</a></p>
         </article>
     }
 }

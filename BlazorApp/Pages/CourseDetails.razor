@@ -1,0 +1,78 @@
+@page "/courses/{Id:int}"
+@attribute [Authorize]
+@using BlazorApp.ApiRequest
+@using BlazorApp.ApiRequest.Models
+@inject ApiRequest Request
+
+<PageTitle>@(string.IsNullOrWhiteSpace(course.name) ? "Курс" : course.name)</PageTitle>
+
+<p><a href="/courses">Назад к каталогу</a></p>
+
+@if (isLoading)
+{
+    <h1>Курс</h1>
+    <p>Загрузка курса...</p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <h1>Курс</h1>
+    <p>@errorMessage</p>
+    <button type="button" @onclick="LoadCourse">Повторить</button>
+}
+else
+{
+    <h1>@course.name</h1>
+    <p>@course.description</p>
+    <p>Наставник: @course.mentorName</p>
+
+    <h2>Уроки</h2>
+
+    @if (course.lessons.Count == 0)
+    {
+        <p>В этом курсе пока нет уроков.</p>
+    }
+    else
+    {
+        <ol>
+            @foreach (var lesson in course.lessons.OrderBy(lesson => lesson.position))
+            {
+                <li @key="lesson.id">@lesson.name</li>
+            }
+        </ol>
+    }
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private CourseItem course = new();
+    private string errorMessage = "";
+    private bool isLoading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadCourse();
+    }
+
+    private async Task LoadCourse()
+    {
+        isLoading = true;
+        errorMessage = "";
+
+        var response = await Request.GetCourse(Id);
+        if (response.status)
+        {
+            course = response.course;
+        }
+        else
+        {
+            course = new CourseItem();
+            errorMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось загрузить курс. Проверьте доступность API."
+                : response.message;
+        }
+
+        isLoading = false;
+    }
+}
