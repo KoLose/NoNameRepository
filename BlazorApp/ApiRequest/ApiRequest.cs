@@ -565,6 +565,36 @@ namespace BlazorApp.ApiRequest
             }
         }
 
+        public async Task<CommentData> GetComments(int lessonId, string token)
+        {
+            var url = $"Comments/{lessonId}";
+            try
+            {
+                SetToken(token);
+                var response = await _httpClient.GetAsync(url);
+                return await ReadAsync<CommentData>(response);
+            }
+            catch
+            {
+                return new CommentData();
+            }
+        }
+
+        public async Task<CommentData> AddComment(int lessonId, CommentRequest comment, string token)
+        {
+            var url = $"AddComment/{lessonId}";
+            try
+            {
+                SetToken(token);
+                var response = await _httpClient.PostAsJsonAsync(url, comment);
+                return await ReadAsync<CommentData>(response);
+            }
+            catch
+            {
+                return new CommentData();
+            }
+        }
+
         public async Task<DirectoryData> GetRoles(string token)
         {
             return await GetDirectory("Roles", token);

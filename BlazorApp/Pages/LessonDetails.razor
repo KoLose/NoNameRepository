@@ -73,6 +73,51 @@ else
             </p>
         </section>
     }
+
+    <section>
+        <h2>Комментарии</h2>
+
+        @if (areCommentsLoading)
+        {
+            <p>Загрузка комментариев...</p>
+        }
+        else if (!string.IsNullOrWhiteSpace(commentsErrorMessage))
+        {
+            <p>@commentsErrorMessage</p>
+            <button type="button" @onclick="LoadComments">Повторить</button>
+        }
+        else if (comments.Count == 0)
+        {
+            <p>Комментариев пока нет.</p>
+        }
+        else
+        {
+            @foreach (var comment in comments)
+            {
+                <article @key="comment.id">
+                    <p><strong>@comment.userName</strong></p>
+                    <p>@comment.content</p>
+                    <p>@FormatCommentDate(comment.createdAt)</p>
+                </article>
+            }
+        }
+
+        <div>
+            <label for="new-comment">Новый комментарий</label>
+            <textarea id="new-comment"
+                      maxlength="2000"
+                      @bind="newCommentContent"
+                      disabled="@isSendingComment"></textarea>
+        </div>
+        <button type="button" @onclick="SendComment" disabled="@isSendingComment">
+            @(isSendingComment ? "Отправка..." : "Отправить")
+        </button>
+
+        @if (!string.IsNullOrWhiteSpace(commentActionMessage))
+        {
+            <p>@commentActionMessage</p>
+        }
+    </section>
 }
 
 @code {
@@ -86,9 +131,15 @@ else
     private LessonItem lesson = new();
     private string errorMessage = "";
     private string progressMessage = "";
+    private string commentsErrorMessage = "";
+    private string commentActionMessage = "";
+    private string newCommentContent = "";
+    private List<CommentItem> comments = new();
     private bool isLoading = true;
     private bool isProgressLoading;
     private bool isUpdatingProgress;
+    private bool areCommentsLoading;
+    private bool isSendingComment;
     private int progressStatusId = StatusNotStarted;
     private string progressStatusName = "Не начат";
 
@@ -107,6 +158,7 @@ else
         {
             lesson = response.lesson;
             await LoadProgress();
+            await LoadComments();
         }
         else
         {
@@ -179,4 +231,75 @@ else
 
         isUpdatingProgress = false;
     }
+
+    private async Task LoadComments()
+    {
+        areCommentsLoading = true;
+        commentsErrorMessage = "";
+
+        var response = await Request.GetComments(Id, AuthService.Token);
+        if (response.status)
+        {
+            comments = response.comments
+                .OrderBy(comment => comment.createdAt)
+                .ToList();
+        }
+        else
+        {
+            comments.Clear();
+            commentsErrorMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось загрузить комментарии."
+                : response.message;
+        }
+
+        areCommentsLoading = false;
+    }
+
+    private async Task SendComment()
+    {
+        if (isSendingComment)
+            return;
+
+        var content = newCommentContent.Trim();
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            commentActionMessage = "Введите текст комментария.";
+            return;
+        }
+
+        if (content.Length > 2000)
+        {
+            commentActionMessage = "Комментарий не должен превышать 2000 символов.";
+            return;
+        }
+
+        isSendingComment = true;
+        commentActionMessage = "";
+
+        var response = await Request.AddComment(
+            Id,
+            new CommentRequest { content = content },
+            AuthService.Token);
+
+        if (response.status)
+        {
+            comments.Add(response.comment);
+            newCommentContent = "";
+            commentsErrorMessage = "";
+            commentActionMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Комментарий отправлен."
+                : response.message;
+        }
+        else
+        {
+            commentActionMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось отправить комментарий."
+                : response.message;
+        }
+
+        isSendingComment = false;
+    }
+
+    private static string FormatCommentDate(DateTime date) =>
+        date.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
 }
