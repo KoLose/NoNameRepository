@@ -17,6 +17,10 @@ namespace WorldSkillsAPI.Services
         private const int StatusAccepted = 3;   // принят
         private const int StatusRejected = 4;   // отклонён
 
+        private const int RoleStudent = 1;
+        private const int RoleMentor = 2;
+        private const int RoleAdmin = 3;
+
         public AnswerService(ContextDb context)
         {
             _context = context;
@@ -159,8 +163,10 @@ namespace WorldSkillsAPI.Services
         {
             try
             {
-                var userId = await GetUserIdByTokenAsync(token);
-                if (userId == null)
+                var session = await _context.Sessions
+                    .Include(item => item.User)
+                    .FirstOrDefaultAsync(item => item.Token == token);
+                if (session == null)
                 {
                     return new UnauthorizedObjectResult(new
                     {
@@ -169,15 +175,11 @@ namespace WorldSkillsAPI.Services
                     });
                 }
 
-                var session = await _context.Sessions
-                    .Include(s => s.User)
-                    .FirstOrDefaultAsync(s => s.Token == token);
-
-                int roleId = session!.User.RoleId;
-
                 var answer = await _context.Answers
                     .Include(a => a.User)
                     .Include(a => a.Assignment)
+                    .ThenInclude(assignment => assignment.Lesson)
+                    .ThenInclude(lesson => lesson.Course)
                     .Include(a => a.Status)
                     .FirstOrDefaultAsync(a => a.Id == id);
 
@@ -190,14 +192,35 @@ namespace WorldSkillsAPI.Services
                     });
                 }
 
-                bool isMentorOrAdmin = roleId == 2 || roleId == 3;
-
-                if (!isMentorOrAdmin && answer.UserId != userId.Value)
+                if (session.User.RoleId == RoleStudent && answer.UserId != session.UserId)
                 {
                     return new ObjectResult(new
                     {
                         status = false,
                         message = "Нет доступа к чужому ответу"
+                    })
+                    { StatusCode = 403 };
+                }
+
+                if (session.User.RoleId == RoleMentor &&
+                    answer.Assignment?.Lesson?.Course?.MentorId != session.UserId)
+                {
+                    return new ObjectResult(new
+                    {
+                        status = false,
+                        message = "Можно просматривать ответы только в своих курсах"
+                    })
+                    { StatusCode = 403 };
+                }
+
+                if (session.User.RoleId != RoleStudent &&
+                    session.User.RoleId != RoleMentor &&
+                    session.User.RoleId != RoleAdmin)
+                {
+                    return new ObjectResult(new
+                    {
+                        status = false,
+                        message = "Нет доступа к ответу"
                     })
                     { StatusCode = 403 };
                 }

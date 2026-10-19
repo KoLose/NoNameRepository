@@ -7,8 +7,8 @@ namespace WorldSkillsAPI.Interfaces
     {
         Task<IActionResult> GetAssignmentsByLessonAsync(int lessonId);    // задания урока
         Task<IActionResult> GetAssignmentByIdAsync(int id);               // задание по id
-        Task<IActionResult> CreateAssignmentAsync(AssignmentRequest request); // создать задание
-        Task<IActionResult> UpdateAssignmentAsync(int id, AssignmentRequest request); // обновить задание
+        Task<IActionResult> CreateAssignmentAsync(AssignmentRequest request, string token); // создать задание
+        Task<IActionResult> UpdateAssignmentAsync(int id, AssignmentRequest request, string token); // обновить задание
         Task<IActionResult> DeleteAssignmentAsync(int id);                // удалить задание
     }
 }
