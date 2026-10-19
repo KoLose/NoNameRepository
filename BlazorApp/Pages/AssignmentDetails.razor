@@ -1,0 +1,374 @@
+@page "/assignments/{Id:int}"
+@attribute [Authorize]
+@using BlazorApp.ApiRequest
+@using BlazorApp.ApiRequest.Models
+@using BlazorApp.Services
+@inject ApiRequest Request
+@inject AuthService AuthService
+
+<PageTitle>@(string.IsNullOrWhiteSpace(assignment.name) ? "Задание" : assignment.name)</PageTitle>
+
+@if (isLoading)
+{
+    <h1>Задание</h1>
+    <p>Загрузка задания...</p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <p><a href="/courses">Назад к каталогу</a></p>
+    <h1>Задание</h1>
+    <p>@errorMessage</p>
+    <button type="button" @onclick="LoadAssignment">Повторить</button>
+}
+else
+{
+    <p><a href="@($"/lessons/{assignment.lessonId}")">Назад к уроку</a></p>
+    <h1>@assignment.name</h1>
+    <p>Урок: @assignment.lessonName</p>
+    <p>@assignment.description</p>
+    <p>Максимальный балл: @assignment.maxScore</p>
+
+    @if (AuthService.RoleId == RoleStudent)
+    {
+        <section>
+            <h2>Ваш ответ</h2>
+
+            @if (isStudentDataLoading)
+            {
+                <p>Загрузка ответа...</p>
+            }
+            else if (!string.IsNullOrWhiteSpace(studentErrorMessage))
+            {
+                <p>@studentErrorMessage</p>
+                <button type="button" @onclick="LoadStudentData">Повторить</button>
+            }
+            else
+            {
+                @if (studentAnswer is not null)
+                {
+                    <p>Статус: @studentAnswer.statusName</p>
+                    <p>Отправлен: @FormatDate(studentAnswer.submittedAt)</p>
+
+                    @if (studentGrade is not null)
+                    {
+                        <p>Оценка: @studentGrade.score из @assignment.maxScore</p>
+                        <p>Наставник: @studentGrade.mentorName</p>
+                    }
+                }
+                else
+                {
+                    <p>Ответ ещё не отправлен.</p>
+                }
+
+                <div>
+                    <label for="answer-content">Текст ответа</label>
+                    <textarea id="answer-content"
+                              @bind="answerContent"
+                              disabled="@(isSavingAnswer || IsAnswerLocked)"></textarea>
+                </div>
+
+                <button type="button"
+                        @onclick="SaveAnswer"
+                        disabled="@(isSavingAnswer || IsAnswerLocked)">
+                    @(isSavingAnswer
+                        ? "Сохранение..."
+                        : studentAnswer is null ? "Отправить ответ" : "Обновить ответ")
+                </button>
+
+                @if (IsAnswerLocked)
+                {
+                    <p>Проверенный ответ нельзя изменить.</p>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(answerActionMessage))
+                {
+                    <p>@answerActionMessage</p>
+                }
+            }
+        </section>
+    }
+    else if (AuthService.RoleId is RoleMentor or RoleAdmin)
+    {
+        <section>
+            <h2>Ответы студентов</h2>
+
+            @if (areMentorAnswersLoading)
+            {
+                <p>Загрузка ответов...</p>
+            }
+            else if (!string.IsNullOrWhiteSpace(mentorErrorMessage))
+            {
+                <p>@mentorErrorMessage</p>
+                <button type="button" @onclick="LoadMentorAnswers">Повторить</button>
+            }
+            else if (mentorAnswers.Count == 0)
+            {
+                <p>Студенты пока не отправили ответы.</p>
+            }
+            else
+            {
+                @foreach (var item in mentorAnswers)
+                {
+                    <article @key="item.Answer.id">
+                        <h3>@item.Answer.userName</h3>
+                        <p>Статус: @item.Answer.statusName</p>
+                        <p>Отправлен: @FormatDate(item.Answer.submittedAt)</p>
+                        <p>@item.Answer.content</p>
+
+                        <div>
+                            <label for="@($"score-{item.Answer.id}")">
+                                Балл от 0 до @assignment.maxScore
+                            </label>
+                            <input id="@($"score-{item.Answer.id}")"
+                                   type="number"
+                                   min="0"
+                                   max="@assignment.maxScore"
+                                   @bind="item.Score"
+                                   disabled="@item.IsSaving" />
+                        </div>
+                        <button type="button"
+                                @onclick="() => SaveGrade(item)"
+                                disabled="@item.IsSaving">
+                            @(item.IsSaving
+                                ? "Сохранение..."
+                                : item.Grade is null ? "Поставить оценку" : "Изменить оценку")
+                        </button>
+
+                        @if (!string.IsNullOrWhiteSpace(item.Message))
+                        {
+                            <p>@item.Message</p>
+                        }
+                    </article>
+                }
+            }
+        </section>
+    }
+}
+
+@code {
+    private const int RoleStudent = 1;
+    private const int RoleMentor = 2;
+    private const int RoleAdmin = 3;
+    private const int AnswerStatusAccepted = 3;
+    private const int AnswerStatusRejected = 4;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    private AssignmentItem assignment = new();
+    private AnswerItem? studentAnswer;
+    private GradeItem? studentGrade;
+    private List<MentorAnswerItem> mentorAnswers = new();
+    private string answerContent = "";
+    private string errorMessage = "";
+    private string studentErrorMessage = "";
+    private string mentorErrorMessage = "";
+    private string answerActionMessage = "";
+    private bool isLoading = true;
+    private bool isStudentDataLoading;
+    private bool areMentorAnswersLoading;
+    private bool isSavingAnswer;
+
+    private bool IsAnswerLocked => studentAnswer?.statusId is AnswerStatusAccepted or AnswerStatusRejected;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAssignment();
+    }
+
+    private async Task LoadAssignment()
+    {
+        isLoading = true;
+        errorMessage = "";
+
+        var response = await Request.GetAssignment(Id);
+        if (!response.status)
+        {
+            assignment = new AssignmentItem();
+            errorMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось загрузить задание. Проверьте доступность API."
+                : response.message;
+            isLoading = false;
+            return;
+        }
+
+        assignment = response.assignment;
+
+        if (AuthService.RoleId == RoleStudent)
+            await LoadStudentData();
+        else if (AuthService.RoleId is RoleMentor or RoleAdmin)
+            await LoadMentorAnswers();
+
+        isLoading = false;
+    }
+
+    private async Task LoadStudentData()
+    {
+        isStudentDataLoading = true;
+        studentErrorMessage = "";
+
+        var answersResponse = await Request.GetMyAnswers(AuthService.Token);
+        if (!answersResponse.status)
+        {
+            studentErrorMessage = string.IsNullOrWhiteSpace(answersResponse.message)
+                ? "Не удалось загрузить ответ."
+                : answersResponse.message;
+            isStudentDataLoading = false;
+            return;
+        }
+
+        studentAnswer = answersResponse.answers.FirstOrDefault(answer => answer.assignmentId == Id);
+        answerContent = studentAnswer?.content ?? "";
+        studentGrade = null;
+
+        if (studentAnswer is not null)
+        {
+            var gradesResponse = await Request.GetMyScores(AuthService.Token);
+            if (gradesResponse.status)
+                studentGrade = gradesResponse.grades.FirstOrDefault(grade => grade.answerId == studentAnswer.id);
+        }
+
+        isStudentDataLoading = false;
+    }
+
+    private async Task SaveAnswer()
+    {
+        if (isSavingAnswer || IsAnswerLocked)
+            return;
+
+        var content = answerContent.Trim();
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            answerActionMessage = "Введите текст ответа.";
+            return;
+        }
+
+        isSavingAnswer = true;
+        answerActionMessage = "";
+
+        var request = new AnswerDataShort
+        {
+            assignmentId = Id,
+            content = content,
+            fileUrl = studentAnswer?.fileUrl ?? ""
+        };
+
+        if (studentAnswer is null)
+        {
+            var response = await Request.SubmitAnswer(request, AuthService.Token);
+            answerActionMessage = response.status
+                ? "Ответ отправлен на проверку."
+                : string.IsNullOrWhiteSpace(response.message) ? "Не удалось отправить ответ." : response.message;
+
+            if (response.status)
+                await LoadStudentData();
+        }
+        else
+        {
+            var response = await Request.UpdateAnswer(studentAnswer.id, request, AuthService.Token);
+            answerActionMessage = response.status
+                ? string.IsNullOrWhiteSpace(response.message) ? "Ответ обновлён." : response.message
+                : string.IsNullOrWhiteSpace(response.message) ? "Не удалось обновить ответ." : response.message;
+
+            if (response.status)
+                await LoadStudentData();
+        }
+
+        isSavingAnswer = false;
+    }
+
+    private async Task LoadMentorAnswers()
+    {
+        areMentorAnswersLoading = true;
+        mentorErrorMessage = "";
+        mentorAnswers.Clear();
+
+        var response = await Request.GetAnswersByAssignment(Id, AuthService.Token);
+        if (!response.status)
+        {
+            mentorErrorMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось загрузить ответы студентов."
+                : response.message;
+            areMentorAnswersLoading = false;
+            return;
+        }
+
+        foreach (var answer in response.answers.OrderBy(answer => answer.submittedAt))
+        {
+            var gradesResponse = await Request.GetGradesByAnswer(answer.id, AuthService.Token);
+            var grade = gradesResponse.status
+                ? AuthService.RoleId == RoleAdmin
+                    ? gradesResponse.grades.FirstOrDefault()
+                    : gradesResponse.grades.FirstOrDefault(item => item.mentorId == AuthService.UserId)
+                : null;
+
+            mentorAnswers.Add(new MentorAnswerItem
+            {
+                Answer = answer,
+                Grade = grade,
+                Score = grade?.score ?? 0
+            });
+        }
+
+        areMentorAnswersLoading = false;
+    }
+
+    private async Task SaveGrade(MentorAnswerItem item)
+    {
+        if (item.IsSaving)
+            return;
+
+        if (item.Score < 0 || item.Score > assignment.maxScore)
+        {
+            item.Message = $"Балл должен быть от 0 до {assignment.maxScore}.";
+            return;
+        }
+
+        item.IsSaving = true;
+        item.Message = "";
+        var request = new GradeDataShort
+        {
+            answerId = item.Answer.id,
+            score = item.Score
+        };
+
+        if (item.Grade is null)
+        {
+            var response = await Request.CreateGrade(request, AuthService.Token);
+            item.Message = response.status
+                ? "Оценка сохранена."
+                : string.IsNullOrWhiteSpace(response.message) ? "Не удалось сохранить оценку." : response.message;
+
+            if (response.status)
+            {
+                item.Grade = new GradeItem { id = response.gradeId, answerId = item.Answer.id, score = item.Score };
+                item.Answer.statusId = AnswerStatusAccepted;
+                item.Answer.statusName = "Принят";
+            }
+        }
+        else
+        {
+            var response = await Request.UpdateGrade(item.Grade.id, request, AuthService.Token);
+            item.Message = response.status
+                ? string.IsNullOrWhiteSpace(response.message) ? "Оценка обновлена." : response.message
+                : string.IsNullOrWhiteSpace(response.message) ? "Не удалось обновить оценку." : response.message;
+
+            if (response.status)
+                item.Grade.score = item.Score;
+        }
+
+        item.IsSaving = false;
+    }
+
+    private static string FormatDate(DateTime? date) =>
+        date.HasValue ? date.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") : "—";
+
+    private sealed class MentorAnswerItem
+    {
+        public AnswerItem Answer { get; init; } = new();
+        public GradeItem? Grade { get; set; }
+        public int Score { get; set; }
+        public bool IsSaving { get; set; }
+        public string Message { get; set; } = "";
+    }
+}

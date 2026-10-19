@@ -22,6 +22,10 @@ public class AuthService : AuthenticationStateProvider
 
     public string Token { get; private set; } = string.Empty;
     public bool IsLoggedIn => _currentUser.Identity?.IsAuthenticated == true;
+    public int UserId => int.TryParse(
+        _currentUser.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId) ? userId : 0;
+    public int RoleId => int.TryParse(
+        _currentUser.FindFirst(ClaimTypes.Role)?.Value, out var roleId) ? roleId : 0;
 
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
     {
@@ -92,7 +96,9 @@ public class AuthService : AuthenticationStateProvider
         {
             new Claim(ClaimTypes.NameIdentifier, user.id.ToString()),
             new Claim(ClaimTypes.Name, user.name),
-            new Claim("login", user.login)
+            new Claim("login", user.login),
+            new Claim(ClaimTypes.Role, user.roleId.ToString()),
+            new Claim("role_name", user.roleName)
         };
 
         return new ClaimsPrincipal(new ClaimsIdentity(claims, "api-token"));

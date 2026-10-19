@@ -33,11 +33,27 @@ namespace WorldSkillsAPI.Services
             return session?.UserId;
         }
 
-        public async Task<IActionResult> GetAnswersByAssignmentAsync(int assignmentId)
+        public async Task<IActionResult> GetAnswersByAssignmentAsync(int assignmentId, string token)
         {
             try
             {
-                var assignment = await _context.Assignments.FirstOrDefaultAsync(a => a.Id == assignmentId);
+                var session = await _context.Sessions
+                    .Include(item => item.User)
+                    .FirstOrDefaultAsync(item => item.Token == token);
+
+                if (session == null)
+                {
+                    return new UnauthorizedObjectResult(new
+                    {
+                        status = false,
+                        message = "Сессия не найдена"
+                    });
+                }
+
+                var assignment = await _context.Assignments
+                    .Include(item => item.Lesson)
+                    .ThenInclude(lesson => lesson.Course)
+                    .FirstOrDefaultAsync(a => a.Id == assignmentId);
                 if (assignment == null)
                 {
                     return new NotFoundObjectResult(new
@@ -45,6 +61,16 @@ namespace WorldSkillsAPI.Services
                         status = false,
                         message = "Задание не найдено"
                     });
+                }
+
+                if (session.User.RoleId == 2 && assignment.Lesson?.Course?.MentorId != session.UserId)
+                {
+                    return new ObjectResult(new
+                    {
+                        status = false,
+                        message = "Можно проверять задания только в своих курсах"
+                    })
+                    { StatusCode = 403 };
                 }
 
                 var answers = await _context.Answers

@@ -25,6 +25,8 @@ namespace BlazorApp.ApiRequest.Models
         public int id { get; set; }
         public string login { get; set; } = "";
         public string name { get; set; } = "";
+        public int roleId { get; set; }
+        public string roleName { get; set; } = "";
     }
 
     public class UserData
