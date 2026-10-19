@@ -1,0 +1,75 @@
+@page "/login"
+@using BlazorApp.ApiRequest
+@using BlazorApp.ApiRequest.Models
+@using BlazorApp.Services
+@inject ApiRequest Request
+@inject NavigationManager Navigation
+@inject AuthService AuthService
+
+<PageTitle>Вход</PageTitle>
+
+<h1>Вход</h1>
+
+<form @onsubmit="Authorize" @onsubmit:preventDefault>
+    <div>
+        <label for="login">Логин</label>
+        <input id="login" @bind="login" autocomplete="username" />
+    </div>
+
+    <div>
+        <label for="password">Пароль</label>
+        <input id="password" type="password" @bind="password" autocomplete="current-password" />
+    </div>
+
+    <button type="submit" disabled="@isSubmitting">Войти</button>
+</form>
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <p>@errorMessage</p>
+}
+
+<p><a href="register">Зарегистрироваться</a></p>
+
+@code {
+    private string login = "";
+    private string password = "";
+    private string errorMessage = "";
+    private bool isSubmitting;
+
+    private async Task Authorize()
+    {
+        errorMessage = "";
+
+        if (string.IsNullOrWhiteSpace(login) || string.IsNullOrWhiteSpace(password))
+        {
+            errorMessage = "Введите логин и пароль.";
+            return;
+        }
+
+        isSubmitting = true;
+        try
+        {
+            var response = await Request.AuthUser(new AuthUser
+            {
+                login = login.Trim(),
+                password = password
+            });
+
+            if (response.status && !string.IsNullOrWhiteSpace(response.token))
+            {
+                await AuthService.LoginAsync(response.token);
+                Navigation.NavigateTo("/");
+                return;
+            }
+
+            errorMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Неверный логин или пароль либо API недоступен."
+                : response.message;
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

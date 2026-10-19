@@ -237,7 +237,6 @@ namespace WorldSkillsAPI.Migrations
                         .HasColumnType("integer");
 
                     b.Property<string>("VideoUrl")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");

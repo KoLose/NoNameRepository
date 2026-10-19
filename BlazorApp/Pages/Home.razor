@@ -8,23 +8,5 @@
 
 @code {
 
-    [Inject] private ApiRequest _request { get; set; }
     
-    private string login = "";
-    private string password = "";
-    private string errormessage = "";
-
-    private async Task Authorize()
-    {
-        var response = await _request.AuthUser(new AuthUser {login = login, password = password});
-        if (response.status)
-        {
-            service.Login();
-            manager.NavigateTo("/home");
-        }
-        else
-        {
-            errormessage = "неверный логин или пароль";
-        }
-    }
 }

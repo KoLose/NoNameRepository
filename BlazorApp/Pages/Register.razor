@@ -1,0 +1,98 @@
+@page "/register"
+@using BlazorApp.ApiRequest
+@using BlazorApp.ApiRequest.Models
+@inject ApiRequest Request
+@inject NavigationManager Navigation
+
+<PageTitle>Регистрация</PageTitle>
+
+<h1>Регистрация</h1>
+
+<form @onsubmit="RegisterUser" @onsubmit:preventDefault>
+    <div>
+        <label for="name">Имя</label>
+        <input id="name" @bind="name" autocomplete="name" />
+    </div>
+
+    <div>
+        <label for="login">Логин</label>
+        <input id="login" @bind="login" autocomplete="username" />
+    </div>
+
+    <div>
+        <label for="password">Пароль</label>
+        <input id="password" type="password" @bind="password" autocomplete="new-password" />
+    </div>
+
+    <div>
+        <label for="confirm-password">Повторите пароль</label>
+        <input id="confirm-password" type="password" @bind="confirmPassword" autocomplete="new-password" />
+    </div>
+
+    <button type="submit" disabled="@isSubmitting">Зарегистрироваться</button>
+</form>
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <p>@errorMessage</p>
+}
+
+<p><a href="login">Уже есть аккаунт</a></p>
+
+@code {
+    private string name = "";
+    private string login = "";
+    private string password = "";
+    private string confirmPassword = "";
+    private string errorMessage = "";
+    private bool isSubmitting;
+
+    private async Task RegisterUser()
+    {
+        errorMessage = "";
+
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(login) ||
+            string.IsNullOrWhiteSpace(password))
+        {
+            errorMessage = "Заполните все поля.";
+            return;
+        }
+
+        if (password.Length < 6)
+        {
+            errorMessage = "Пароль должен содержать не менее 6 символов.";
+            return;
+        }
+
+        if (password != confirmPassword)
+        {
+            errorMessage = "Пароли не совпадают.";
+            return;
+        }
+
+        isSubmitting = true;
+        try
+        {
+            var response = await Request.RegUser(new RegUser
+            {
+                name = name.Trim(),
+                login = login.Trim(),
+                password = password
+            });
+
+            if (response.status)
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            errorMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось зарегистрироваться. Проверьте доступность API."
+                : response.message;
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

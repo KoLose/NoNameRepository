@@ -11,6 +11,13 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddControllers();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("BlazorClient", policy =>
+        policy.WithOrigins("https://localhost:7190", "http://localhost:5263")
+            .AllowAnyHeader()
+            .AllowAnyMethod());
+});
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -64,6 +71,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("BlazorClient");
 
 app.UseAuthorization();
 
