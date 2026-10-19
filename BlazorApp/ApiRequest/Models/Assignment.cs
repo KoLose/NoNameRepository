@@ -18,6 +18,7 @@ namespace BlazorApp.ApiRequest.Models
         public int position { get; set; }
         public int lessonId { get; set; }
         public string lessonName { get; set; } = "";
+        public int courseMentorId { get; set; }
     }
 
     public class AssignmentData

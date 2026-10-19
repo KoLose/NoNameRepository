@@ -28,6 +28,53 @@ else
     <p>@assignment.description</p>
     <p>Максимальный балл: @assignment.maxScore</p>
 
+    @if (CanManageAssignment)
+    {
+        <section>
+            <h2>Редактирование задания</h2>
+
+            <div>
+                <label for="assignment-name">Название</label>
+                <input id="assignment-name"
+                       @bind="editName"
+                       disabled="@isSavingAssignment" />
+            </div>
+            <div>
+                <label for="assignment-description">Описание</label>
+                <textarea id="assignment-description"
+                          @bind="editDescription"
+                          disabled="@isSavingAssignment"></textarea>
+            </div>
+            <div>
+                <label for="assignment-score">Максимальный балл</label>
+                <input id="assignment-score"
+                       type="number"
+                       min="1"
+                       @bind="editMaxScore"
+                       disabled="@isSavingAssignment" />
+            </div>
+            <div>
+                <label for="assignment-position">Позиция</label>
+                <input id="assignment-position"
+                       type="number"
+                       min="1"
+                       @bind="editPosition"
+                       disabled="@isSavingAssignment" />
+            </div>
+
+            <button type="button"
+                    @onclick="SaveAssignment"
+                    disabled="@isSavingAssignment">
+                @(isSavingAssignment ? "Сохранение..." : "Сохранить изменения")
+            </button>
+
+            @if (!string.IsNullOrWhiteSpace(assignmentEditMessage))
+            {
+                <p>@assignmentEditMessage</p>
+            }
+        </section>
+    }
+
     @if (AuthService.RoleId == RoleStudent)
     {
         <section>
@@ -164,12 +211,21 @@ else
     private string studentErrorMessage = "";
     private string mentorErrorMessage = "";
     private string answerActionMessage = "";
+    private string assignmentEditMessage = "";
+    private string editName = "";
+    private string editDescription = "";
+    private int editMaxScore;
+    private int editPosition;
     private bool isLoading = true;
     private bool isStudentDataLoading;
     private bool areMentorAnswersLoading;
     private bool isSavingAnswer;
+    private bool isSavingAssignment;
 
     private bool IsAnswerLocked => studentAnswer?.statusId is AnswerStatusAccepted or AnswerStatusRejected;
+    private bool CanManageAssignment =>
+        AuthService.RoleId == RoleAdmin ||
+        AuthService.RoleId == RoleMentor && assignment.courseMentorId == AuthService.UserId;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -180,6 +236,7 @@ else
     {
         isLoading = true;
         errorMessage = "";
+        assignmentEditMessage = "";
 
         var response = await Request.GetAssignment(Id);
         if (!response.status)
@@ -193,6 +250,10 @@ else
         }
 
         assignment = response.assignment;
+        editName = assignment.name;
+        editDescription = assignment.description;
+        editMaxScore = assignment.maxScore;
+        editPosition = assignment.position;
 
         if (AuthService.RoleId == RoleStudent)
             await LoadStudentData();
@@ -200,6 +261,64 @@ else
             await LoadMentorAnswers();
 
         isLoading = false;
+    }
+
+    private async Task SaveAssignment()
+    {
+        if (isSavingAssignment || !CanManageAssignment)
+            return;
+
+        var name = editName.Trim();
+        var description = editDescription.Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            assignmentEditMessage = "Введите название задания.";
+            return;
+        }
+
+        if (editMaxScore <= 0)
+        {
+            assignmentEditMessage = "Максимальный балл должен быть больше нуля.";
+            return;
+        }
+
+        if (editPosition <= 0)
+        {
+            assignmentEditMessage = "Позиция должна быть больше нуля.";
+            return;
+        }
+
+        isSavingAssignment = true;
+        assignmentEditMessage = "";
+
+        var response = await Request.UpdateAssignment(Id, new AssignmentDataShort
+        {
+            lessonId = assignment.lessonId,
+            name = name,
+            description = description,
+            maxScore = editMaxScore,
+            position = editPosition
+        }, AuthService.Token);
+
+        if (response.status)
+        {
+            assignment.name = name;
+            assignment.description = description;
+            assignment.maxScore = editMaxScore;
+            assignment.position = editPosition;
+            assignmentEditMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Задание обновлено."
+                : response.message;
+        }
+        else
+        {
+            assignmentEditMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось обновить задание."
+                : response.message;
+        }
+
+        isSavingAssignment = false;
     }
 
     private async Task LoadStudentData()

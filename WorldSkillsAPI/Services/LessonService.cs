@@ -88,7 +88,8 @@ namespace WorldSkillsAPI.Services
                         videoUrl = lesson.VideoUrl,
                         position = lesson.Position,
                         courseId = lesson.CourseId,
-                        courseName = lesson.Course != null ? lesson.Course.Name : null
+                        courseName = lesson.Course != null ? lesson.Course.Name : null,
+                        courseMentorId = lesson.Course?.MentorId ?? 0
                     }
                 });
             }

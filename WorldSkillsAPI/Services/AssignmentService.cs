@@ -79,6 +79,7 @@ namespace WorldSkillsAPI.Services
             {
                 var assignment = await _context.Assignments
                     .Include(a => a.Lesson)
+                    .ThenInclude(lesson => lesson.Course)
                     .FirstOrDefaultAsync(a => a.Id == id);
 
                 if (assignment == null)
@@ -101,7 +102,8 @@ namespace WorldSkillsAPI.Services
                         maxScore = assignment.MaxScore,
                         position = assignment.Position,
                         lessonId = assignment.LessonId,
-                        lessonName = assignment.Lesson != null ? assignment.Lesson.Name : null
+                        lessonName = assignment.Lesson != null ? assignment.Lesson.Name : null,
+                        courseMentorId = assignment.Lesson?.Course?.MentorId ?? 0
                     }
                 });
             }
