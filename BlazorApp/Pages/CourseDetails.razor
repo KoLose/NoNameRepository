@@ -2,7 +2,9 @@
 @attribute [Authorize]
 @using BlazorApp.ApiRequest
 @using BlazorApp.ApiRequest.Models
+@using BlazorApp.Services
 @inject ApiRequest Request
+@inject AuthService AuthService
 
 <PageTitle>@(string.IsNullOrWhiteSpace(course.name) ? "Курс" : course.name)</PageTitle>
 
@@ -25,6 +27,26 @@ else
     <p>@course.description</p>
     <p>Наставник: @course.mentorName</p>
 
+    <section>
+        <h2>Прогресс</h2>
+
+        @if (isProgressLoading)
+        {
+            <p>Загрузка прогресса...</p>
+        }
+        else if (!string.IsNullOrWhiteSpace(progressErrorMessage))
+        {
+            <p>@progressErrorMessage</p>
+            <button type="button" @onclick="LoadProgress">Повторить</button>
+        }
+        else
+        {
+            <p>Завершено уроков: @courseProgress.completedLessons из @courseProgress.totalLessons</p>
+            <progress value="@courseProgress.percent" max="100">@courseProgress.percent%</progress>
+            <p>@courseProgress.percent%</p>
+        }
+    </section>
+
     <h2>Уроки</h2>
 
     @if (course.lessons.Count == 0)
@@ -36,7 +58,10 @@ else
         <ol>
             @foreach (var lesson in course.lessons.OrderBy(lesson => lesson.position))
             {
-                <li @key="lesson.id">@lesson.name</li>
+                <li @key="lesson.id">
+                    <a href="@($"/lessons/{lesson.id}")">@lesson.name</a>
+                    — @GetLessonStatus(lesson.id)
+                </li>
             }
         </ol>
     }
@@ -47,8 +72,11 @@ else
     public int Id { get; set; }
 
     private CourseItem course = new();
+    private ProgressData courseProgress = new();
     private string errorMessage = "";
+    private string progressErrorMessage = "";
     private bool isLoading = true;
+    private bool isProgressLoading;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -64,6 +92,7 @@ else
         if (response.status)
         {
             course = response.course;
+            await LoadProgress();
         }
         else
         {
@@ -74,5 +103,36 @@ else
         }
 
         isLoading = false;
+    }
+
+    private async Task LoadProgress()
+    {
+        isProgressLoading = true;
+        progressErrorMessage = "";
+
+        var response = await Request.GetCourseProgress(Id, AuthService.Token);
+        if (response.status)
+        {
+            courseProgress = response;
+        }
+        else
+        {
+            courseProgress = new ProgressData();
+            progressErrorMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось загрузить прогресс."
+                : response.message;
+        }
+
+        isProgressLoading = false;
+    }
+
+    private string GetLessonStatus(int lessonId)
+    {
+        if (!string.IsNullOrWhiteSpace(progressErrorMessage))
+            return "Статус недоступен";
+
+        return courseProgress.progress
+            .FirstOrDefault(item => item.lessonId == lessonId)?.statusName
+            ?? "Не начат";
     }
 }

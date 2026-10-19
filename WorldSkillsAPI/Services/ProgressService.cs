@@ -181,6 +181,15 @@ namespace WorldSkillsAPI.Services
                         });
                     }
 
+                    if (existing.StatusId == StatusInProgress)
+                    {
+                        return new BadRequestObjectResult(new
+                        {
+                            status = false,
+                            message = "Урок уже начат"
+                        });
+                    }
+
                     existing.StatusId = StatusInProgress;
                     existing.StartedAt = DateTime.UtcNow;
                     await _context.SaveChangesAsync();
