@@ -1,0 +1,66 @@
+@page "/courses"
+@attribute [Authorize]
+@using BlazorApp.ApiRequest
+@using BlazorApp.ApiRequest.Models
+@inject ApiRequest Request
+
+<PageTitle>Каталог курсов</PageTitle>
+
+<h1>Каталог курсов</h1>
+
+@if (isLoading)
+{
+    <p>Загрузка курсов...</p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <p>@errorMessage</p>
+    <button type="button" @onclick="LoadCourses">Повторить</button>
+}
+else if (courses.Count == 0)
+{
+    <p>Курсы пока не добавлены.</p>
+}
+else
+{
+    @foreach (var course in courses)
+    {
+        <article @key="course.id">
+            <h2>@course.name</h2>
+            <p>@course.description</p>
+            <p>Наставник: @course.mentorName</p>
+        </article>
+    }
+}
+
+@code {
+    private List<CourseItem> courses = new();
+    private string errorMessage = "";
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCourses();
+    }
+
+    private async Task LoadCourses()
+    {
+        isLoading = true;
+        errorMessage = "";
+
+        var response = await Request.GetCourses();
+        if (response.status)
+        {
+            courses = response.courses.OrderBy(course => course.id).ToList();
+        }
+        else
+        {
+            courses.Clear();
+            errorMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось загрузить курсы. Проверьте доступность API."
+                : response.message;
+        }
+
+        isLoading = false;
+    }
+}
