@@ -32,6 +32,9 @@
 <p><a href="register">Зарегистрироваться</a></p>
 
 @code {
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
     private string login = "";
     private string password = "";
     private string errorMessage = "";
@@ -58,8 +61,13 @@
 
             if (response.status && !string.IsNullOrWhiteSpace(response.token))
             {
-                await AuthService.LoginAsync(response.token);
-                Navigation.NavigateTo("/");
+                if (await AuthService.LoginAsync(response.token))
+                {
+                    Navigation.NavigateTo(GetDestination());
+                    return;
+                }
+
+                errorMessage = "Не удалось проверить созданную сессию.";
                 return;
             }
 
@@ -71,5 +79,16 @@
         {
             isSubmitting = false;
         }
+    }
+
+    private string GetDestination()
+    {
+        if (string.IsNullOrWhiteSpace(ReturnUrl))
+            return "/";
+
+        var relativeUrl = ReturnUrl.TrimStart('/');
+        return relativeUrl.Contains(':') || relativeUrl.StartsWith("//")
+            ? "/"
+            : $"/{relativeUrl}";
     }
 }

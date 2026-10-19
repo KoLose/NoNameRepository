@@ -1,0 +1,64 @@
+@page "/profile"
+@attribute [Authorize]
+@using BlazorApp.ApiRequest
+@using BlazorApp.ApiRequest.Models
+@using BlazorApp.Services
+@inject ApiRequest Request
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Профиль</PageTitle>
+
+<h1>Профиль</h1>
+
+@if (isLoading)
+{
+    <p>Загрузка...</p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <p>@errorMessage</p>
+}
+else
+{
+    <dl>
+        <dt>Имя</dt>
+        <dd>@profile.name</dd>
+
+        <dt>Логин</dt>
+        <dd>@profile.login</dd>
+    </dl>
+
+    <button type="button" @onclick="Logout" disabled="@isLoggingOut">Выйти</button>
+}
+
+@code {
+    private UserDataShort profile = new();
+    private string errorMessage = "";
+    private bool isLoading = true;
+    private bool isLoggingOut;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var response = await Request.Profile(AuthService.Token);
+        if (response.status)
+        {
+            profile = response.user;
+        }
+        else
+        {
+            errorMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось загрузить профиль."
+                : response.message;
+        }
+
+        isLoading = false;
+    }
+
+    private async Task Logout()
+    {
+        isLoggingOut = true;
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/login");
+    }
+}
