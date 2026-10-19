@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using WorldSkillsAPI.DatabaseContext;
+using WorldSkillsAPI.Configuration;
 using WorldSkillsAPI.Hubs;
 using WorldSkillsAPI.Interfaces;
 using WorldSkillsAPI.Services;
@@ -57,6 +58,11 @@ builder.Services.AddScoped<IAssignmentService, AssignmentService>();
 builder.Services.AddScoped<IAnswerService, AnswerService>();
 builder.Services.AddScoped<IDirectoryService, DirectoryService>();
 builder.Services.AddScoped<ICommentService, CommentService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IReminderService, ReminderService>();
+
+builder.Services.Configure<SmtpOptions>(
+    builder.Configuration.GetSection(SmtpOptions.SectionName));
 
 builder.Services.AddSingleton<jwtGenerator>();
 
