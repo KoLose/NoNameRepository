@@ -27,6 +27,29 @@ else
     <p>@course.description</p>
     <p>Наставник: @course.mentorName</p>
 
+    @if (isFavoriteLoading)
+    {
+        <p>Проверка избранного...</p>
+    }
+    else if (!favoriteStateLoaded)
+    {
+        <p>@favoriteMessage</p>
+        <button type="button" @onclick="LoadFavoriteState">Повторить</button>
+    }
+    else
+    {
+        <button type="button" @onclick="ToggleFavorite" disabled="@isUpdatingFavorite">
+            @(isUpdatingFavorite
+                ? "Сохранение..."
+                : isFavorite ? "Убрать из избранного" : "Добавить в избранное")
+        </button>
+
+        @if (!string.IsNullOrWhiteSpace(favoriteMessage))
+        {
+            <p>@favoriteMessage</p>
+        }
+    }
+
     <section>
         <h2>Прогресс</h2>
 
@@ -75,8 +98,13 @@ else
     private ProgressData courseProgress = new();
     private string errorMessage = "";
     private string progressErrorMessage = "";
+    private string favoriteMessage = "";
     private bool isLoading = true;
     private bool isProgressLoading;
+    private bool isFavoriteLoading;
+    private bool isUpdatingFavorite;
+    private bool favoriteStateLoaded;
+    private bool isFavorite;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -93,6 +121,7 @@ else
         {
             course = response.course;
             await LoadProgress();
+            await LoadFavoriteState();
         }
         else
         {
@@ -124,6 +153,56 @@ else
         }
 
         isProgressLoading = false;
+    }
+
+    private async Task LoadFavoriteState()
+    {
+        isFavoriteLoading = true;
+        favoriteStateLoaded = false;
+        favoriteMessage = "";
+
+        var response = await Request.GetFavorites(AuthService.Token);
+        if (response.status)
+        {
+            isFavorite = response.favorites.Any(favorite => favorite.courseId == Id);
+            favoriteStateLoaded = true;
+        }
+        else
+        {
+            isFavorite = false;
+            favoriteMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось проверить избранное."
+                : response.message;
+        }
+
+        isFavoriteLoading = false;
+    }
+
+    private async Task ToggleFavorite()
+    {
+        if (isUpdatingFavorite || !favoriteStateLoaded)
+            return;
+
+        isUpdatingFavorite = true;
+        favoriteMessage = "";
+
+        var response = isFavorite
+            ? await Request.RemoveFavorite(Id, AuthService.Token)
+            : await Request.AddFavorite(Id, AuthService.Token);
+
+        if (response.status)
+        {
+            isFavorite = !isFavorite;
+            favoriteMessage = response.message;
+        }
+        else
+        {
+            favoriteMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось изменить избранное."
+                : response.message;
+        }
+
+        isUpdatingFavorite = false;
     }
 
     private string GetLessonStatus(int lessonId)

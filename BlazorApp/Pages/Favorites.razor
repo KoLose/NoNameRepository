@@ -1,0 +1,118 @@
+@page "/favorites"
+@attribute [Authorize]
+@using BlazorApp.ApiRequest
+@using BlazorApp.ApiRequest.Models
+@using BlazorApp.Services
+@inject ApiRequest Request
+@inject AuthService AuthService
+
+<PageTitle>Избранные курсы</PageTitle>
+
+<h1>Избранные курсы</h1>
+
+@if (isLoading)
+{
+    <p>Загрузка избранных курсов...</p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <p>@errorMessage</p>
+    <button type="button" @onclick="LoadFavorites">Повторить</button>
+}
+else if (favorites.Count == 0)
+{
+    <p>В избранном пока нет курсов.</p>
+    <p><a href="/courses">Перейти к каталогу курсов</a></p>
+}
+else
+{
+    @foreach (var favorite in favorites)
+    {
+        <article @key="favorite.courseId">
+            <h2>@favorite.courseName</h2>
+            <p>@favorite.description</p>
+
+            @if (favorite.addedAt.HasValue)
+            {
+                <p>Добавлен: @FormatDate(favorite.addedAt.Value)</p>
+            }
+
+            <p><a href="@($"/courses/{favorite.courseId}")">Открыть курс</a></p>
+            <button type="button"
+                    @onclick="() => RemoveFavorite(favorite.courseId)"
+                    disabled="@(removingCourseId.HasValue)">
+                @(removingCourseId == favorite.courseId ? "Удаление..." : "Убрать из избранного")
+            </button>
+        </article>
+    }
+}
+
+@if (!string.IsNullOrWhiteSpace(actionMessage))
+{
+    <p>@actionMessage</p>
+}
+
+@code {
+    private List<FavoriteItem> favorites = new();
+    private string errorMessage = "";
+    private string actionMessage = "";
+    private bool isLoading = true;
+    private int? removingCourseId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadFavorites();
+    }
+
+    private async Task LoadFavorites()
+    {
+        isLoading = true;
+        errorMessage = "";
+        actionMessage = "";
+
+        var response = await Request.GetFavorites(AuthService.Token);
+        if (response.status)
+        {
+            favorites = response.favorites
+                .OrderByDescending(favorite => favorite.addedAt)
+                .ToList();
+        }
+        else
+        {
+            favorites.Clear();
+            errorMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось загрузить избранные курсы. Проверьте доступность API."
+                : response.message;
+        }
+
+        isLoading = false;
+    }
+
+    private async Task RemoveFavorite(int courseId)
+    {
+        if (removingCourseId.HasValue)
+            return;
+
+        removingCourseId = courseId;
+        actionMessage = "";
+
+        var response = await Request.RemoveFavorite(courseId, AuthService.Token);
+        if (response.status)
+        {
+            favorites.RemoveAll(favorite => favorite.courseId == courseId);
+            actionMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Курс убран из избранного."
+                : response.message;
+        }
+        else
+        {
+            actionMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось убрать курс из избранного."
+                : response.message;
+        }
+
+        removingCourseId = null;
+    }
+
+    private static string FormatDate(DateTime date) => date.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
+}
