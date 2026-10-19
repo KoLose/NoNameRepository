@@ -9,11 +9,31 @@ namespace WorldSkillsAPI.Services
 {
     public class LessonService : ILessonService
     {
+        private const int RoleMentor = 2;
+        private const int RoleAdmin = 3;
+
         private readonly ContextDb _context;
 
         public LessonService(ContextDb context)
         {
             _context = context;
+        }
+
+        private async Task<(int UserId, int RoleId)?> GetActorAsync(string token)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+                return null;
+
+            var session = await _context.Sessions
+                .Where(item => item.Token == token)
+                .Select(item => new
+                {
+                    item.UserId,
+                    item.User.RoleId
+                })
+                .FirstOrDefaultAsync();
+
+            return session == null ? null : (session.UserId, session.RoleId);
         }
 
         public async Task<IActionResult> GetLessonsByCourseAsync(int courseId)
@@ -103,10 +123,25 @@ namespace WorldSkillsAPI.Services
             }
         }
 
-        public async Task<IActionResult> CreateLessonAsync(LessonRequest request)
+        public async Task<IActionResult> CreateLessonAsync(LessonRequest request, string token)
         {
             try
             {
+                var actor = await GetActorAsync(token);
+                if (actor == null)
+                {
+                    return new UnauthorizedObjectResult(new
+                    {
+                        status = false,
+                        message = "Сессия не найдена"
+                    });
+                }
+
+                if (actor.Value.RoleId != RoleMentor && actor.Value.RoleId != RoleAdmin)
+                {
+                    return AccessDenied("Нет прав на создание урока");
+                }
+
                 if (string.IsNullOrWhiteSpace(request.Name))
                 {
                     return new BadRequestObjectResult(new
@@ -124,6 +159,11 @@ namespace WorldSkillsAPI.Services
                         status = false,
                         message = "Курс не найден"
                     });
+                }
+
+                if (actor.Value.RoleId == RoleMentor && course.MentorId != actor.Value.UserId)
+                {
+                    return AccessDenied("Можно создавать уроки только в своих курсах");
                 }
 
                 if (request.Position <= 0)
@@ -163,11 +203,28 @@ namespace WorldSkillsAPI.Services
             }
         }
 
-        public async Task<IActionResult> UpdateLessonAsync(int id, LessonRequest request)
+        public async Task<IActionResult> UpdateLessonAsync(int id, LessonRequest request, string token)
         {
             try
             {
-                var lesson = await _context.Lessons.FirstOrDefaultAsync(l => l.Id == id);
+                var actor = await GetActorAsync(token);
+                if (actor == null)
+                {
+                    return new UnauthorizedObjectResult(new
+                    {
+                        status = false,
+                        message = "Сессия не найдена"
+                    });
+                }
+
+                if (actor.Value.RoleId != RoleMentor && actor.Value.RoleId != RoleAdmin)
+                {
+                    return AccessDenied("Нет прав на изменение урока");
+                }
+
+                var lesson = await _context.Lessons
+                    .Include(item => item.Course)
+                    .FirstOrDefaultAsync(item => item.Id == id);
                 if (lesson == null)
                 {
                     return new NotFoundObjectResult(new
@@ -175,6 +232,12 @@ namespace WorldSkillsAPI.Services
                         status = false,
                         message = "Урок не найден"
                     });
+                }
+
+                if (actor.Value.RoleId == RoleMentor &&
+                    lesson.Course.MentorId != actor.Value.UserId)
+                {
+                    return AccessDenied("Можно изменять уроки только в своих курсах");
                 }
 
                 if (!string.IsNullOrWhiteSpace(request.Name))
@@ -239,5 +302,12 @@ namespace WorldSkillsAPI.Services
                 });
             }
         }
+
+        private static ObjectResult AccessDenied(string message) => new(new
+        {
+            status = false,
+            message
+        })
+        { StatusCode = StatusCodes.Status403Forbidden };
     }
 }
