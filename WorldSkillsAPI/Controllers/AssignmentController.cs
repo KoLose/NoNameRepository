@@ -33,7 +33,8 @@ namespace WorldSkillsAPI.Controllers
         [RoleAuthorized(2, 3)]
         public async Task<IActionResult> CreateAssignment([FromBody] AssignmentRequest request)
         {
-            return await _assignmentService.CreateAssignmentAsync(request);
+            var token = Request.Headers["Authorization"].FirstOrDefault() ?? "";
+            return await _assignmentService.CreateAssignmentAsync(request, token);
         }
 
         [HttpPut]
@@ -41,7 +42,8 @@ namespace WorldSkillsAPI.Controllers
         [RoleAuthorized(2, 3)]
         public async Task<IActionResult> UpdateAssignment(int id, [FromBody] AssignmentRequest request)
         {
-            return await _assignmentService.UpdateAssignmentAsync(id, request);
+            var token = Request.Headers["Authorization"].FirstOrDefault() ?? "";
+            return await _assignmentService.UpdateAssignmentAsync(id, request, token);
         }
 
         [HttpDelete]

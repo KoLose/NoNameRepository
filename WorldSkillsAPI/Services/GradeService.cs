@@ -324,6 +324,8 @@ namespace WorldSkillsAPI.Services
                 var grade = await _context.Grades
                     .Include(g => g.Answer)
                     .ThenInclude(a => a.Assignment)
+                    .ThenInclude(assignment => assignment.Lesson)
+                    .ThenInclude(lesson => lesson.Course)
                     .FirstOrDefaultAsync(g => g.Id == id);
 
                 if (grade == null)
@@ -335,12 +337,24 @@ namespace WorldSkillsAPI.Services
                     });
                 }
 
-                if (roleId != RoleAdmin && grade.MentorId != userId)
+                if (roleId == RoleMentor &&
+                    (grade.MentorId != userId ||
+                     grade.Answer?.Assignment?.Lesson?.Course?.MentorId != userId))
                 {
                     return new ObjectResult(new
                     {
                         status = false,
-                        message = "Можно редактировать только свою оценку"
+                        message = "Можно редактировать оценки только в своих курсах"
+                    })
+                    { StatusCode = 403 };
+                }
+
+                if (roleId != RoleMentor && roleId != RoleAdmin)
+                {
+                    return new ObjectResult(new
+                    {
+                        status = false,
+                        message = "Нет прав на изменение оценки"
                     })
                     { StatusCode = 403 };
                 }

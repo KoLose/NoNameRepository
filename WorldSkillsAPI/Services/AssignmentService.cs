@@ -11,9 +11,22 @@ namespace WorldSkillsAPI.Services
     {
         private readonly ContextDb _context;
 
+        private const int RoleMentor = 2;
+        private const int RoleAdmin = 3;
+
         public AssignmentService(ContextDb context)
         {
             _context = context;
+        }
+
+        private async Task<Session?> GetSessionByTokenAsync(string token)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+                return null;
+
+            return await _context.Sessions
+                .Include(session => session.User)
+                .FirstOrDefaultAsync(session => session.Token == token);
         }
 
         public async Task<IActionResult> GetAssignmentsByLessonAsync(int lessonId)
@@ -102,10 +115,30 @@ namespace WorldSkillsAPI.Services
             }
         }
 
-        public async Task<IActionResult> CreateAssignmentAsync(AssignmentRequest request)
+        public async Task<IActionResult> CreateAssignmentAsync(AssignmentRequest request, string token)
         {
             try
             {
+                var session = await GetSessionByTokenAsync(token);
+                if (session == null)
+                {
+                    return new UnauthorizedObjectResult(new
+                    {
+                        status = false,
+                        message = "Сессия не найдена"
+                    });
+                }
+
+                if (session.User.RoleId != RoleMentor && session.User.RoleId != RoleAdmin)
+                {
+                    return new ObjectResult(new
+                    {
+                        status = false,
+                        message = "Нет прав на создание заданий"
+                    })
+                    { StatusCode = 403 };
+                }
+
                 if (string.IsNullOrWhiteSpace(request.Name))
                 {
                     return new BadRequestObjectResult(new
@@ -133,7 +166,9 @@ namespace WorldSkillsAPI.Services
                     });
                 }
 
-                var lesson = await _context.Lessons.FirstOrDefaultAsync(l => l.Id == request.LessonId);
+                var lesson = await _context.Lessons
+                    .Include(item => item.Course)
+                    .FirstOrDefaultAsync(item => item.Id == request.LessonId);
                 if (lesson == null)
                 {
                     return new NotFoundObjectResult(new
@@ -141,6 +176,16 @@ namespace WorldSkillsAPI.Services
                         status = false,
                         message = "Урок не найден"
                     });
+                }
+
+                if (session.User.RoleId == RoleMentor && lesson.Course?.MentorId != session.UserId)
+                {
+                    return new ObjectResult(new
+                    {
+                        status = false,
+                        message = "Можно создавать задания только в своих курсах"
+                    })
+                    { StatusCode = 403 };
                 }
 
                 var assignment = new Assignment
@@ -173,11 +218,34 @@ namespace WorldSkillsAPI.Services
             }
         }
 
-        public async Task<IActionResult> UpdateAssignmentAsync(int id, AssignmentRequest request)
+        public async Task<IActionResult> UpdateAssignmentAsync(int id, AssignmentRequest request, string token)
         {
             try
             {
-                var assignment = await _context.Assignments.FirstOrDefaultAsync(a => a.Id == id);
+                var session = await GetSessionByTokenAsync(token);
+                if (session == null)
+                {
+                    return new UnauthorizedObjectResult(new
+                    {
+                        status = false,
+                        message = "Сессия не найдена"
+                    });
+                }
+
+                if (session.User.RoleId != RoleMentor && session.User.RoleId != RoleAdmin)
+                {
+                    return new ObjectResult(new
+                    {
+                        status = false,
+                        message = "Нет прав на изменение заданий"
+                    })
+                    { StatusCode = 403 };
+                }
+
+                var assignment = await _context.Assignments
+                    .Include(item => item.Lesson)
+                    .ThenInclude(lesson => lesson.Course)
+                    .FirstOrDefaultAsync(item => item.Id == id);
                 if (assignment == null)
                 {
                     return new NotFoundObjectResult(new
@@ -185,6 +253,17 @@ namespace WorldSkillsAPI.Services
                         status = false,
                         message = "Задание не найдено"
                     });
+                }
+
+                if (session.User.RoleId == RoleMentor &&
+                    assignment.Lesson?.Course?.MentorId != session.UserId)
+                {
+                    return new ObjectResult(new
+                    {
+                        status = false,
+                        message = "Можно изменять задания только в своих курсах"
+                    })
+                    { StatusCode = 403 };
                 }
 
                 if (!string.IsNullOrWhiteSpace(request.Name))
