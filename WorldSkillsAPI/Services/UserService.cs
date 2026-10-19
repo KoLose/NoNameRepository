@@ -177,7 +177,9 @@ namespace WorldSkillsAPI.Services
                 {
                     id = session.User.Id,
                     login = session.User.Login,
-                    name = session.User.Name
+                    name = session.User.Name,
+                    roleId = session.User.RoleId,
+                    roleName = session.User.Role != null ? session.User.Role.Name : ""
                 }
             });
         }

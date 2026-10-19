@@ -20,12 +20,13 @@ namespace WorldSkillsAPI.Controllers
         [RoleAuthorized(2, 3)]
         public async Task<IActionResult> GetByAssignment(int assignmentId)
         {
-            return await _answerService.GetAnswersByAssignmentAsync(assignmentId);
+            var token = Request.Headers["Authorization"].FirstOrDefault() ?? "";
+            return await _answerService.GetAnswersByAssignmentAsync(assignmentId, token);
         }
 
         [HttpGet]
         [Route("MyAnswers")]
-        [RoleAuthorized]
+        [RoleAuthorized(1)]
         public async Task<IActionResult> MyAnswers()
         {
             var token = Request.Headers["Authorization"].FirstOrDefault();
@@ -43,7 +44,7 @@ namespace WorldSkillsAPI.Controllers
 
         [HttpPost]
         [Route("SubmitAnswer")]
-        [RoleAuthorized]
+        [RoleAuthorized(1)]
         public async Task<IActionResult> SubmitAnswer([FromBody] AnswerRequest request)
         {
             var token = Request.Headers["Authorization"].FirstOrDefault();
@@ -52,7 +53,7 @@ namespace WorldSkillsAPI.Controllers
 
         [HttpPut]
         [Route("UpdateAnswer/{id}")]
-        [RoleAuthorized]
+        [RoleAuthorized(1)]
         public async Task<IActionResult> UpdateAnswer(int id, [FromBody] AnswerRequest request)
         {
             var token = Request.Headers["Authorization"].FirstOrDefault();

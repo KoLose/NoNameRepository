@@ -19,7 +19,8 @@ namespace WorldSkillsAPI.Controllers
         [RoleAuthorized(2, 3)]
         public async Task<IActionResult> GetByAnswer(int answerId)
         {
-            return await _gradeService.GetGradesByAnswerAsync(answerId);
+            var token = Request.Headers["Authorization"].FirstOrDefault() ?? "";
+            return await _gradeService.GetGradesByAnswerAsync(answerId, token);
         }
 
         [HttpGet]

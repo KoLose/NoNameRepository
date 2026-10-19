@@ -32,11 +32,25 @@ namespace WorldSkillsAPI.Services
                 .FirstOrDefaultAsync(s => s.Token == token);
         }
 
-        public async Task<IActionResult> GetGradesByAnswerAsync(int answerId)
+        public async Task<IActionResult> GetGradesByAnswerAsync(int answerId, string token)
         {
             try
             {
-                var answer = await _context.Answers.FirstOrDefaultAsync(a => a.Id == answerId);
+                var session = await GetSessionByTokenAsync(token);
+                if (session == null)
+                {
+                    return new UnauthorizedObjectResult(new
+                    {
+                        status = false,
+                        message = "Сессия не найдена"
+                    });
+                }
+
+                var answer = await _context.Answers
+                    .Include(item => item.Assignment)
+                    .ThenInclude(assignment => assignment.Lesson)
+                    .ThenInclude(lesson => lesson.Course)
+                    .FirstOrDefaultAsync(a => a.Id == answerId);
                 if (answer == null)
                 {
                     return new NotFoundObjectResult(new
@@ -44,6 +58,17 @@ namespace WorldSkillsAPI.Services
                         status = false,
                         message = "Ответ не найден"
                     });
+                }
+
+                if (session.User.RoleId == RoleMentor &&
+                    answer.Assignment?.Lesson?.Course?.MentorId != session.UserId)
+                {
+                    return new ObjectResult(new
+                    {
+                        status = false,
+                        message = "Можно просматривать оценки только в своих курсах"
+                    })
+                    { StatusCode = 403 };
                 }
 
                 var grades = await _context.Grades
@@ -194,6 +219,8 @@ namespace WorldSkillsAPI.Services
 
                 var answer = await _context.Answers
                     .Include(a => a.Assignment)
+                    .ThenInclude(assignment => assignment.Lesson)
+                    .ThenInclude(lesson => lesson.Course)
                     .FirstOrDefaultAsync(a => a.Id == request.AnswerId);
 
                 if (answer == null)
@@ -203,6 +230,17 @@ namespace WorldSkillsAPI.Services
                         status = false,
                         message = "Ответ не найден"
                     });
+                }
+
+                if (session.User.RoleId == RoleMentor &&
+                    answer.Assignment?.Lesson?.Course?.MentorId != session.UserId)
+                {
+                    return new ObjectResult(new
+                    {
+                        status = false,
+                        message = "Можно оценивать ответы только в своих курсах"
+                    })
+                    { StatusCode = 403 };
                 }
 
                 if (request.Score < 0)

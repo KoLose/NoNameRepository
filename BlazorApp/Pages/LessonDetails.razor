@@ -75,6 +75,36 @@ else
     }
 
     <section>
+        <h2>Практические задания</h2>
+
+        @if (areAssignmentsLoading)
+        {
+            <p>Загрузка заданий...</p>
+        }
+        else if (!string.IsNullOrWhiteSpace(assignmentsErrorMessage))
+        {
+            <p>@assignmentsErrorMessage</p>
+            <button type="button" @onclick="LoadAssignments">Повторить</button>
+        }
+        else if (assignments.Count == 0)
+        {
+            <p>Для этого урока заданий пока нет.</p>
+        }
+        else
+        {
+            <ol>
+                @foreach (var assignment in assignments)
+                {
+                    <li @key="assignment.id">
+                        <a href="@($"/assignments/{assignment.id}")">@assignment.name</a>
+                        — максимум @assignment.maxScore баллов
+                    </li>
+                }
+            </ol>
+        }
+    </section>
+
+    <section>
         <h2>Комментарии</h2>
 
         @if (areCommentsLoading)
@@ -132,13 +162,16 @@ else
     private string errorMessage = "";
     private string progressMessage = "";
     private string commentsErrorMessage = "";
+    private string assignmentsErrorMessage = "";
     private string commentActionMessage = "";
     private string newCommentContent = "";
     private List<CommentItem> comments = new();
+    private List<AssignmentItem> assignments = new();
     private bool isLoading = true;
     private bool isProgressLoading;
     private bool isUpdatingProgress;
     private bool areCommentsLoading;
+    private bool areAssignmentsLoading;
     private bool isSendingComment;
     private int progressStatusId = StatusNotStarted;
     private string progressStatusName = "Не начат";
@@ -158,6 +191,7 @@ else
         {
             lesson = response.lesson;
             await LoadProgress();
+            await LoadAssignments();
             await LoadComments();
         }
         else
@@ -230,6 +264,29 @@ else
             await LoadProgress();
 
         isUpdatingProgress = false;
+    }
+
+    private async Task LoadAssignments()
+    {
+        areAssignmentsLoading = true;
+        assignmentsErrorMessage = "";
+
+        var response = await Request.GetAssignmentsByLesson(Id);
+        if (response.status)
+        {
+            assignments = response.assignments
+                .OrderBy(assignment => assignment.position)
+                .ToList();
+        }
+        else
+        {
+            assignments.Clear();
+            assignmentsErrorMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось загрузить задания."
+                : response.message;
+        }
+
+        areAssignmentsLoading = false;
     }
 
     private async Task LoadComments()
