@@ -7,8 +7,8 @@ namespace WorldSkillsAPI.Interfaces
     {
         Task<IActionResult> GetCoursesAsync();                            // список всех курсов
         Task<IActionResult> GetCourseByIdAsync(int id);                   // курс по id
-        Task<IActionResult> CreateCourseAsync(CourseRequest request);     // создать курс
-        Task<IActionResult> UpdateCourseAsync(int id, CourseRequest request); // обновить курс
+        Task<IActionResult> CreateCourseAsync(CourseRequest request, string token);     // создать курс
+        Task<IActionResult> UpdateCourseAsync(int id, CourseRequest request, string token); // обновить курс
         Task<IActionResult> DeleteCourseAsync(int id);                    // удалить курс
         Task<IActionResult> GetFavoriteCoursesAsync(string token);        // избранные курсы
         Task<IActionResult> AddFavoriteCourseAsync(string token, int courseId);    // добавить в избранное

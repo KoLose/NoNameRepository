@@ -33,7 +33,8 @@ namespace WorldSkillsAPI.Controllers
         [RoleAuthorized(2, 3)]
         public async Task<IActionResult> CreateCourse([FromBody] CourseRequest request)
         {
-            return await _courseService.CreateCourseAsync(request);
+            var token = Request.Headers["Authorization"].FirstOrDefault() ?? "";
+            return await _courseService.CreateCourseAsync(request, token);
         }
 
         [HttpPut]
@@ -41,7 +42,8 @@ namespace WorldSkillsAPI.Controllers
         [RoleAuthorized(2, 3)]
         public async Task<IActionResult> UpdateCourse(int id, [FromBody] CourseRequest request)
         {
-            return await _courseService.UpdateCourseAsync(id, request);
+            var token = Request.Headers["Authorization"].FirstOrDefault() ?? "";
+            return await _courseService.UpdateCourseAsync(id, request, token);
         }
 
         [HttpDelete]
