@@ -1,0 +1,138 @@
+@page "/progress"
+@attribute [Authorize]
+@using BlazorApp.ApiRequest
+@using BlazorApp.ApiRequest.Models
+@using BlazorApp.Services
+@inject ApiRequest Request
+@inject AuthService AuthService
+
+<PageTitle>Мой прогресс</PageTitle>
+
+<h1>Мой прогресс</h1>
+
+@if (isLoading)
+{
+    <p>Загрузка прогресса...</p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <p>@errorMessage</p>
+    <button type="button" @onclick="LoadProgress">Повторить</button>
+}
+else if (progressItems.Count == 0)
+{
+    <p>Вы ещё не начали ни одного урока.</p>
+    <p><a href="/courses">Перейти к каталогу курсов</a></p>
+}
+else
+{
+    <p>В процессе: @inProgressCount</p>
+    <p>Завершено: @completedCount</p>
+
+    @foreach (var group in progressGroups)
+    {
+        <section @key="group.CourseId">
+            <h2>
+                <a href="@($"/courses/{group.CourseId}")">@group.CourseName</a>
+            </h2>
+
+            <ul>
+                @foreach (var item in group.Items)
+                {
+                    <li @key="item.lessonId">
+                        <p>
+                            <a href="@($"/lessons/{item.lessonId}")">@item.lessonName</a>
+                        </p>
+                        <p>Статус: @item.statusName</p>
+
+                        @if (item.startedAt.HasValue)
+                        {
+                            <p>Начат: @FormatDate(item.startedAt.Value)</p>
+                        }
+
+                        @if (item.completedAt.HasValue)
+                        {
+                            <p>Завершён: @FormatDate(item.completedAt.Value)</p>
+                        }
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+}
+
+@code {
+    private const int StatusInProgress = 2;
+    private const int StatusCompleted = 3;
+
+    private List<ProgressItem> progressItems = new();
+    private List<CourseProgressGroup> progressGroups = new();
+    private string errorMessage = "";
+    private bool isLoading = true;
+    private int inProgressCount;
+    private int completedCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProgress();
+    }
+
+    private async Task LoadProgress()
+    {
+        isLoading = true;
+        errorMessage = "";
+
+        var progressResponse = await Request.GetMyProgress(AuthService.Token);
+        if (!progressResponse.status)
+        {
+            ResetProgress();
+            errorMessage = string.IsNullOrWhiteSpace(progressResponse.message)
+                ? "Не удалось загрузить прогресс. Проверьте доступность API."
+                : progressResponse.message;
+            isLoading = false;
+            return;
+        }
+
+        var coursesResponse = await Request.GetCourses();
+        var courseNames = coursesResponse.status
+            ? coursesResponse.courses.ToDictionary(course => course.id, course => course.name)
+            : new Dictionary<int, string>();
+
+        progressItems = progressResponse.progress
+            .OrderBy(item => item.courseId)
+            .ThenBy(item => item.lessonId)
+            .ToList();
+
+        progressGroups = progressItems
+            .GroupBy(item => item.courseId)
+            .Select(group => new CourseProgressGroup
+            {
+                CourseId = group.Key,
+                CourseName = courseNames.GetValueOrDefault(group.Key, $"Курс #{group.Key}"),
+                Items = group.ToList()
+            })
+            .OrderBy(group => group.CourseName)
+            .ToList();
+
+        inProgressCount = progressItems.Count(item => item.statusId == StatusInProgress);
+        completedCount = progressItems.Count(item => item.statusId == StatusCompleted);
+        isLoading = false;
+    }
+
+    private void ResetProgress()
+    {
+        progressItems.Clear();
+        progressGroups.Clear();
+        inProgressCount = 0;
+        completedCount = 0;
+    }
+
+    private static string FormatDate(DateTime date) => date.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
+
+    private sealed class CourseProgressGroup
+    {
+        public int CourseId { get; init; }
+        public string CourseName { get; init; } = "";
+        public List<ProgressItem> Items { get; init; } = new();
+    }
+}
