@@ -209,6 +209,24 @@ namespace BlazorApp.ApiRequest
             }
         }
 
+        public async Task<ReminderResult> SendCourseReminder(
+            int courseId,
+            CourseReminderRequest reminder,
+            string token)
+        {
+            var url = $"api/Reminder/course/{courseId}/send";
+            try
+            {
+                SetToken(token);
+                var response = await _httpClient.PostAsJsonAsync(url, reminder);
+                return await ReadAsync<ReminderResult>(response);
+            }
+            catch
+            {
+                return new ReminderResult();
+            }
+        }
+
         public async Task<LessonData> GetLessonsByCourse(int courseId)
         {
             var url = $"GetByCourse/{courseId}";

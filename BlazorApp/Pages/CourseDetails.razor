@@ -27,6 +27,34 @@ else
     <p>@course.description</p>
     <p>Наставник: @course.mentorName</p>
 
+    @if (CanSendCourseReminder)
+    {
+        <section>
+            <h2>Напомнить студентам</h2>
+            <p>
+                Письмо получат студенты, которые начали хотя бы один урок,
+                но ещё не завершили все уроки курса.
+            </p>
+            <div>
+                <label for="course-reminder-text">Текст напоминания</label>
+                <textarea id="course-reminder-text"
+                          maxlength="2000"
+                          @bind="reminderText"
+                          disabled="@isSendingReminder"></textarea>
+            </div>
+            <button type="button"
+                    @onclick="SendCourseReminder"
+                    disabled="@isSendingReminder">
+                @(isSendingReminder ? "Отправка..." : "Отправить напоминание")
+            </button>
+
+            @if (!string.IsNullOrWhiteSpace(reminderMessage))
+            {
+                <p>@reminderMessage</p>
+            }
+        </section>
+    }
+
     @if (isFavoriteLoading)
     {
         <p>Проверка избранного...</p>
@@ -91,6 +119,9 @@ else
 }
 
 @code {
+    private const int RoleMentor = 2;
+    private const int RoleAdmin = 3;
+
     [Parameter]
     public int Id { get; set; }
 
@@ -99,12 +130,19 @@ else
     private string errorMessage = "";
     private string progressErrorMessage = "";
     private string favoriteMessage = "";
+    private string reminderMessage = "";
+    private string reminderText = "";
     private bool isLoading = true;
     private bool isProgressLoading;
     private bool isFavoriteLoading;
     private bool isUpdatingFavorite;
+    private bool isSendingReminder;
     private bool favoriteStateLoaded;
     private bool isFavorite;
+
+    private bool CanSendCourseReminder =>
+        AuthService.RoleId == RoleAdmin ||
+        AuthService.RoleId == RoleMentor && course.mentorId == AuthService.UserId;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -115,6 +153,7 @@ else
     {
         isLoading = true;
         errorMessage = "";
+        reminderMessage = "";
 
         var response = await Request.GetCourse(Id);
         if (response.status)
@@ -203,6 +242,44 @@ else
         }
 
         isUpdatingFavorite = false;
+    }
+
+    private async Task SendCourseReminder()
+    {
+        if (isSendingReminder || !CanSendCourseReminder)
+            return;
+
+        var text = reminderText.Trim();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            reminderMessage = "Введите текст напоминания.";
+            return;
+        }
+
+        if (text.Length > 2000)
+        {
+            reminderMessage = "Напоминание не должно превышать 2000 символов.";
+            return;
+        }
+
+        isSendingReminder = true;
+        reminderMessage = "";
+
+        var response = await Request.SendCourseReminder(
+            Id,
+            new CourseReminderRequest { text = text },
+            AuthService.Token);
+
+        reminderMessage = response.status
+            ? response.message
+            : string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось отправить напоминание."
+                : response.message;
+
+        if (response.status)
+            reminderText = "";
+
+        isSendingReminder = false;
     }
 
     private string GetLessonStatus(int lessonId)
