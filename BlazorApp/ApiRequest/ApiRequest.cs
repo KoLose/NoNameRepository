@@ -26,7 +26,6 @@ namespace BlazorApp.ApiRequest
 
         private async Task<T> ReadAsync<T>(HttpResponseMessage response) where T : new()
         {
-            response.EnsureSuccessStatusCode();
             var responseContent = await response.Content.ReadAsStringAsync();
             if (string.IsNullOrEmpty(responseContent))
                 return new T();
