@@ -74,6 +74,20 @@ public class AuthService : AuthenticationStateProvider
         return true;
     }
 
+    public async Task<bool> RefreshProfileAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Token))
+            return false;
+
+        var profile = await _request.Profile(Token);
+        if (!profile.status)
+            return false;
+
+        _currentUser = CreateUser(profile.user);
+        NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(_currentUser)));
+        return true;
+    }
+
     public async Task LogoutAsync()
     {
         if (!string.IsNullOrWhiteSpace(Token))

@@ -17,33 +17,124 @@
 }
 else if (!string.IsNullOrWhiteSpace(errorMessage))
 {
-    <p>@errorMessage</p>
+    <p class="text-danger">@errorMessage</p>
+    <button type="button" class="btn btn-primary" @onclick="LoadProfile">Повторить</button>
 }
 else
 {
-    <dl>
-        <dt>Имя</dt>
-        <dd>@profile.name</dd>
+    <form class="profile-form" @onsubmit="SaveProfile" @onsubmit:preventDefault>
+        <div>
+            <label for="profile-name">Имя</label>
+            <input id="profile-name"
+                   class="form-control"
+                   maxlength="150"
+                   autocomplete="name"
+                   @bind="name"
+                   disabled="@isSaving" />
+        </div>
 
-        <dt>Логин</dt>
-        <dd>@profile.login</dd>
-    </dl>
+        <div>
+            <label for="profile-email">Email</label>
+            <input id="profile-email"
+                   class="form-control"
+                   type="email"
+                   maxlength="200"
+                   autocomplete="email"
+                   @bind="login"
+                   disabled="@isSaving" />
+            <div class="form-text">Этот адрес используется для входа и получения напоминаний.</div>
+        </div>
 
-    <button type="button" @onclick="Logout" disabled="@isLoggingOut">Выйти</button>
+        <div>
+            <label>Роль</label>
+            <input class="form-control" value="@profile.roleName" disabled />
+        </div>
+
+        <fieldset>
+            <legend>Смена пароля</legend>
+            <p>Оставьте поля пустыми, если пароль менять не нужно.</p>
+
+            <div>
+                <label for="current-password">Текущий пароль</label>
+                <input id="current-password"
+                       class="form-control"
+                       type="password"
+                       autocomplete="current-password"
+                       @bind="currentPassword"
+                       disabled="@isSaving" />
+            </div>
+
+            <div>
+                <label for="new-password">Новый пароль</label>
+                <input id="new-password"
+                       class="form-control"
+                       type="password"
+                       minlength="6"
+                       maxlength="200"
+                       autocomplete="new-password"
+                       @bind="newPassword"
+                       disabled="@isSaving" />
+            </div>
+
+            <div>
+                <label for="confirm-password">Повторите новый пароль</label>
+                <input id="confirm-password"
+                       class="form-control"
+                       type="password"
+                       minlength="6"
+                       maxlength="200"
+                       autocomplete="new-password"
+                       @bind="confirmPassword"
+                       disabled="@isSaving" />
+            </div>
+        </fieldset>
+
+        @if (!string.IsNullOrWhiteSpace(saveMessage))
+        {
+            <p>@saveMessage</p>
+        }
+
+        <div class="profile-actions">
+            <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                @(isSaving ? "Сохранение..." : "Сохранить")
+            </button>
+            <button type="button" class="btn btn-outline-secondary" @onclick="Logout" disabled="@isLoggingOut">
+                @(isLoggingOut ? "Выход..." : "Выйти")
+            </button>
+        </div>
+    </form>
 }
 
 @code {
     private UserDataShort profile = new();
+    private string name = "";
+    private string login = "";
+    private string currentPassword = "";
+    private string newPassword = "";
+    private string confirmPassword = "";
     private string errorMessage = "";
+    private string saveMessage = "";
     private bool isLoading = true;
+    private bool isSaving;
     private bool isLoggingOut;
 
     protected override async Task OnInitializedAsync()
     {
+        await AuthService.InitializeAsync();
+        await LoadProfile();
+    }
+
+    private async Task LoadProfile()
+    {
+        isLoading = true;
+        errorMessage = "";
+
         var response = await Request.Profile(AuthService.Token);
         if (response.status)
         {
             profile = response.user;
+            name = profile.name;
+            login = profile.login;
         }
         else
         {
@@ -53,6 +144,59 @@ else
         }
 
         isLoading = false;
+    }
+
+    private async Task SaveProfile()
+    {
+        if (isSaving)
+            return;
+
+        saveMessage = "";
+        var trimmedName = name.Trim();
+        var trimmedLogin = login.Trim();
+
+        if (string.IsNullOrWhiteSpace(trimmedName))
+        {
+            saveMessage = "Введите имя.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(trimmedLogin))
+        {
+            saveMessage = "Введите email.";
+            return;
+        }
+
+        if (newPassword != confirmPassword)
+        {
+            saveMessage = "Новые пароли не совпадают.";
+            return;
+        }
+
+        isSaving = true;
+        var response = await Request.UpdateProfile(new UpdateProfileRequest
+        {
+            name = trimmedName,
+            login = trimmedLogin,
+            currentPassword = currentPassword,
+            newPassword = newPassword
+        }, AuthService.Token);
+
+        saveMessage = string.IsNullOrWhiteSpace(response.message)
+            ? "Не удалось обновить профиль."
+            : response.message;
+
+        if (response.status)
+        {
+            currentPassword = "";
+            newPassword = "";
+            confirmPassword = "";
+            await AuthService.RefreshProfileAsync();
+            profile.name = trimmedName;
+            profile.login = trimmedLogin;
+        }
+
+        isSaving = false;
     }
 
     private async Task Logout()

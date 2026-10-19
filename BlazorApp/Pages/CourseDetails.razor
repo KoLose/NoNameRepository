@@ -55,48 +55,51 @@ else
         </section>
     }
 
-    @if (isFavoriteLoading)
+    @if (AuthService.RoleId == RoleStudent)
     {
-        <p>Проверка избранного...</p>
-    }
-    else if (!favoriteStateLoaded)
-    {
-        <p>@favoriteMessage</p>
-        <button type="button" @onclick="LoadFavoriteState">Повторить</button>
-    }
-    else
-    {
-        <button type="button" @onclick="ToggleFavorite" disabled="@isUpdatingFavorite">
-            @(isUpdatingFavorite
-                ? "Сохранение..."
-                : isFavorite ? "Убрать из избранного" : "Добавить в избранное")
-        </button>
-
-        @if (!string.IsNullOrWhiteSpace(favoriteMessage))
+        @if (isFavoriteLoading)
+        {
+            <p>Проверка избранного...</p>
+        }
+        else if (!favoriteStateLoaded)
         {
             <p>@favoriteMessage</p>
-        }
-    }
-
-    <section>
-        <h2>Прогресс</h2>
-
-        @if (isProgressLoading)
-        {
-            <p>Загрузка прогресса...</p>
-        }
-        else if (!string.IsNullOrWhiteSpace(progressErrorMessage))
-        {
-            <p>@progressErrorMessage</p>
-            <button type="button" @onclick="LoadProgress">Повторить</button>
+            <button type="button" @onclick="LoadFavoriteState">Повторить</button>
         }
         else
         {
-            <p>Завершено уроков: @courseProgress.completedLessons из @courseProgress.totalLessons</p>
-            <progress value="@courseProgress.percent" max="100">@courseProgress.percent%</progress>
-            <p>@courseProgress.percent%</p>
+            <button type="button" @onclick="ToggleFavorite" disabled="@isUpdatingFavorite">
+                @(isUpdatingFavorite
+                    ? "Сохранение..."
+                    : isFavorite ? "Убрать из избранного" : "Добавить в избранное")
+            </button>
+
+            @if (!string.IsNullOrWhiteSpace(favoriteMessage))
+            {
+                <p>@favoriteMessage</p>
+            }
         }
-    </section>
+
+        <section>
+            <h2>Прогресс</h2>
+
+            @if (isProgressLoading)
+            {
+                <p>Загрузка прогресса...</p>
+            }
+            else if (!string.IsNullOrWhiteSpace(progressErrorMessage))
+            {
+                <p>@progressErrorMessage</p>
+                <button type="button" @onclick="LoadProgress">Повторить</button>
+            }
+            else
+            {
+                <p>Завершено уроков: @courseProgress.completedLessons из @courseProgress.totalLessons</p>
+                <progress value="@courseProgress.percent" max="100">@courseProgress.percent%</progress>
+                <p>@courseProgress.percent%</p>
+            }
+        </section>
+    }
 
     <h2>Уроки</h2>
 
@@ -111,7 +114,10 @@ else
             {
                 <li @key="lesson.id">
                     <a href="@($"/lessons/{lesson.id}")">@lesson.name</a>
-                    — @GetLessonStatus(lesson.id)
+                    @if (AuthService.RoleId == RoleStudent)
+                    {
+                        <span> — @GetLessonStatus(lesson.id)</span>
+                    }
                 </li>
             }
         </ol>
@@ -119,6 +125,7 @@ else
 }
 
 @code {
+    private const int RoleStudent = 1;
     private const int RoleMentor = 2;
     private const int RoleAdmin = 3;
 
@@ -159,8 +166,11 @@ else
         if (response.status)
         {
             course = response.course;
-            await LoadProgress();
-            await LoadFavoriteState();
+            if (AuthService.RoleId == RoleStudent)
+            {
+                await LoadProgress();
+                await LoadFavoriteState();
+            }
         }
         else
         {
@@ -219,7 +229,7 @@ else
 
     private async Task ToggleFavorite()
     {
-        if (isUpdatingFavorite || !favoriteStateLoaded)
+        if (AuthService.RoleId != RoleStudent || isUpdatingFavorite || !favoriteStateLoaded)
             return;
 
         isUpdatingFavorite = true;

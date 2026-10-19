@@ -1,0 +1,11 @@
+.other-courses-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.other-course-card {
+    border: 1px solid #d7dce2;
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+}

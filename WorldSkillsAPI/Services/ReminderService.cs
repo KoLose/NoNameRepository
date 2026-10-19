@@ -229,4 +229,167 @@ public class ReminderService : IReminderService
             failedCount
         });
     }
+
+    public async Task<IActionResult> SendStudentReminderAsync(
+        int courseId,
+        int studentId,
+        CourseReminderRequest request,
+        string token,
+        CancellationToken cancellationToken = default)
+    {
+        var session = await _context.Sessions
+            .Include(item => item.User)
+            .FirstOrDefaultAsync(item => item.Token == token, cancellationToken);
+
+        if (session == null)
+        {
+            return new UnauthorizedObjectResult(new
+            {
+                status = false,
+                message = "Сессия не найдена"
+            });
+        }
+
+        if (session.User.RoleId != RoleMentor && session.User.RoleId != RoleAdmin)
+        {
+            return new ObjectResult(new
+            {
+                status = false,
+                message = "Нет прав на отправку напоминаний"
+            })
+            { StatusCode = StatusCodes.Status403Forbidden };
+        }
+
+        var text = (request.Text ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return new BadRequestObjectResult(new
+            {
+                status = false,
+                message = "Введите текст сообщения"
+            });
+        }
+
+        if (text.Length > MaxTextLength)
+        {
+            return new BadRequestObjectResult(new
+            {
+                status = false,
+                message = $"Сообщение не должно превышать {MaxTextLength} символов"
+            });
+        }
+
+        var course = await _context.Courses
+            .FirstOrDefaultAsync(item => item.Id == courseId, cancellationToken);
+        if (course == null)
+        {
+            return new NotFoundObjectResult(new
+            {
+                status = false,
+                message = "Курс не найден"
+            });
+        }
+
+        if (session.User.RoleId == RoleMentor && course.MentorId != session.UserId)
+        {
+            return new ObjectResult(new
+            {
+                status = false,
+                message = "Можно отправлять сообщения только студентам своих курсов"
+            })
+            { StatusCode = StatusCodes.Status403Forbidden };
+        }
+
+        var student = await _context.UserAccounts
+            .Where(user => user.Id == studentId && user.RoleId == RoleStudent)
+            .Select(user => new
+            {
+                user.Id,
+                user.Name,
+                Email = user.Login
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (student == null)
+        {
+            return new NotFoundObjectResult(new
+            {
+                status = false,
+                message = "Студент не найден"
+            });
+        }
+
+        var hasCourseProgress = await _context.LessonProgresses.AnyAsync(item =>
+            item.UserId == studentId &&
+            item.Lesson.CourseId == courseId &&
+            (item.StatusId == StatusInProgress || item.StatusId == StatusCompleted),
+            cancellationToken);
+
+        if (!hasCourseProgress)
+        {
+            return new BadRequestObjectResult(new
+            {
+                status = false,
+                message = "Студент ещё не начинал этот курс"
+            });
+        }
+
+        if (!_emailService.IsConfigured)
+        {
+            return new BadRequestObjectResult(new
+            {
+                status = false,
+                message = "SMTP не настроен. Добавьте настройки Email в user-secrets или переменные окружения"
+            });
+        }
+
+        try
+        {
+            await _emailService.SendAsync(
+                student.Name,
+                student.Email,
+                $"Сообщение по курсу «{course.Name}»",
+                $"Здравствуйте, {student.Name}!\n\n{text}\n\nКурс: {course.Name}",
+                cancellationToken);
+
+            await _context.Reminders.AddAsync(new Reminder
+            {
+                UserId = student.Id,
+                CourseId = courseId,
+                Text = text,
+                RemindAt = DateTime.UtcNow,
+                PeriodicityId = OneTimePeriodicity,
+                IsRead = false,
+                NextTriggerAt = null
+            }, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return new OkObjectResult(new
+            {
+                status = true,
+                message = $"Сообщение отправлено: {student.Name}",
+                sentCount = 1,
+                failedCount = 0
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Не удалось отправить напоминание пользователю {UserId}",
+                student.Id);
+
+            return new BadRequestObjectResult(new
+            {
+                status = false,
+                message = "Не удалось отправить сообщение студенту",
+                sentCount = 0,
+                failedCount = 1
+            });
+        }
+    }
 }

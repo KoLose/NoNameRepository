@@ -20,6 +20,14 @@ namespace BlazorApp.ApiRequest.Models
         public string token { get; set; } = "";
     }
 
+    public class UpdateProfileRequest
+    {
+        public string login { get; set; } = "";
+        public string name { get; set; } = "";
+        public string currentPassword { get; set; } = "";
+        public string newPassword { get; set; } = "";
+    }
+
     public class UserDataShort
     {
         public int id { get; set; }

@@ -91,6 +91,21 @@ namespace BlazorApp.ApiRequest
             }
         }
 
+        public async Task<StatusData> UpdateProfile(UpdateProfileRequest profile, string token)
+        {
+            const string url = "Profile";
+            try
+            {
+                SetToken(token);
+                var response = await _httpClient.PutAsJsonAsync(url, profile);
+                return await ReadAsync<StatusData>(response);
+            }
+            catch
+            {
+                return new StatusData();
+            }
+        }
+
         public async Task<CourseData> GetCourses()
         {
             var url = "GetCourses";
@@ -224,6 +239,55 @@ namespace BlazorApp.ApiRequest
             catch
             {
                 return new ReminderResult();
+            }
+        }
+
+        public async Task<ReminderResult> SendStudentReminder(
+            int courseId,
+            int studentId,
+            CourseReminderRequest reminder,
+            string token)
+        {
+            var url = $"api/Reminder/course/{courseId}/student/{studentId}/send";
+            try
+            {
+                SetToken(token);
+                var response = await _httpClient.PostAsJsonAsync(url, reminder);
+                return await ReadAsync<ReminderResult>(response);
+            }
+            catch
+            {
+                return new ReminderResult();
+            }
+        }
+
+        public async Task<MentorCourseData> GetMentorCourses(string token)
+        {
+            const string url = "api/Mentor/courses";
+            try
+            {
+                SetToken(token);
+                var response = await _httpClient.GetAsync(url);
+                return await ReadAsync<MentorCourseData>(response);
+            }
+            catch
+            {
+                return new MentorCourseData();
+            }
+        }
+
+        public async Task<CourseData> GetOtherMentorCourses(string token)
+        {
+            const string url = "api/Mentor/other-courses";
+            try
+            {
+                SetToken(token);
+                var response = await _httpClient.GetAsync(url);
+                return await ReadAsync<CourseData>(response);
+            }
+            catch
+            {
+                return new CourseData();
             }
         }
 

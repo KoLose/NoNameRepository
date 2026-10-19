@@ -1,0 +1,26 @@
+.profile-form {
+    display: grid;
+    gap: 1rem;
+    max-width: 620px;
+}
+
+.profile-form fieldset {
+    border: 1px solid #d7dce2;
+    border-radius: 0.75rem;
+    display: grid;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.profile-form legend {
+    float: none;
+    font-size: 1.25rem;
+    margin: 0;
+    padding: 0 0.25rem;
+    width: auto;
+}
+
+.profile-actions {
+    display: flex;
+    gap: 0.75rem;
+}

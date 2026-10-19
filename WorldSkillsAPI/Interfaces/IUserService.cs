@@ -10,5 +10,6 @@ namespace WorldSkillsAPI.Interfaces
         Task<IActionResult> LoginAsync(AuthUserRequest request);     // вход
         Task<IActionResult> LogoutAsync(string token); // выход
         Task<IActionResult> GetProfileAsync(string token); // профиль пользователя
+        Task<IActionResult> UpdateProfileAsync(string token, UpdateProfileRequest request); // редактирование профиля
     }
 }

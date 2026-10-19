@@ -1,0 +1,73 @@
+@page "/mentor/other-courses"
+@attribute [Authorize(Roles = "2")]
+@using BlazorApp.ApiRequest
+@using BlazorApp.ApiRequest.Models
+@using BlazorApp.Services
+@inject ApiRequest Request
+@inject AuthService AuthService
+
+<PageTitle>Другие курсы</PageTitle>
+
+<h1>Другие курсы</h1>
+<p>Курсы, назначенные другим наставникам.</p>
+
+@if (isLoading)
+{
+    <p>Загрузка курсов...</p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <p class="text-danger">@errorMessage</p>
+    <button type="button" class="btn btn-primary" @onclick="LoadCourses">Повторить</button>
+}
+else if (courses.Count == 0)
+{
+    <p>Курсов других наставников пока нет.</p>
+}
+else
+{
+    <div class="other-courses-grid">
+        @foreach (var course in courses)
+        {
+            <article class="other-course-card" @key="course.id">
+                <h2>@course.name</h2>
+                <p>@course.description</p>
+                <p>Наставник: @course.mentorName</p>
+                <a href="@($"/courses/{course.id}")">Открыть курс</a>
+            </article>
+        }
+    </div>
+}
+
+@code {
+    private List<CourseItem> courses = new();
+    private string errorMessage = "";
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthService.InitializeAsync();
+        await LoadCourses();
+    }
+
+    private async Task LoadCourses()
+    {
+        isLoading = true;
+        errorMessage = "";
+
+        var response = await Request.GetOtherMentorCourses(AuthService.Token);
+        if (response.status)
+        {
+            courses = response.courses;
+        }
+        else
+        {
+            courses.Clear();
+            errorMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось загрузить другие курсы."
+                : response.message;
+        }
+
+        isLoading = false;
+    }
+}

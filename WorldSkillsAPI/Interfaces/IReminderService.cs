@@ -10,4 +10,11 @@ public interface IReminderService
         CourseReminderRequest request,
         string token,
         CancellationToken cancellationToken = default);
+
+    Task<IActionResult> SendStudentReminderAsync(
+        int courseId,
+        int studentId,
+        CourseReminderRequest request,
+        string token,
+        CancellationToken cancellationToken = default);
 }

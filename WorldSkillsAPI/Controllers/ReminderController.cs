@@ -29,4 +29,21 @@ public class ReminderController : ControllerBase
             token,
             cancellationToken);
     }
+
+    [HttpPost("course/{courseId:int}/student/{studentId:int}/send")]
+    [RoleAuthorized(2, 3)]
+    public async Task<IActionResult> SendStudentReminder(
+        int courseId,
+        int studentId,
+        [FromBody] CourseReminderRequest request,
+        CancellationToken cancellationToken)
+    {
+        var token = Request.Headers["Authorization"].FirstOrDefault() ?? "";
+        return await _reminderService.SendStudentReminderAsync(
+            courseId,
+            studentId,
+            request,
+            token,
+            cancellationToken);
+    }
 }

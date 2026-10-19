@@ -5,6 +5,7 @@ using WorldSkillsAPI.Requests;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WorldSkillsAPI.UniversalMethods;
+using System.Net.Mail;
 
 namespace WorldSkillsAPI.Services
 {
@@ -181,6 +182,130 @@ namespace WorldSkillsAPI.Services
                     roleId = session.User.RoleId,
                     roleName = session.User.Role != null ? session.User.Role.Name : ""
                 }
+            });
+        }
+
+        public async Task<IActionResult> UpdateProfileAsync(
+            string token,
+            UpdateProfileRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                return new UnauthorizedObjectResult(new
+                {
+                    status = false,
+                    message = "Сессия не найдена"
+                });
+            }
+
+            var session = await _context.Sessions
+                .Include(item => item.User)
+                .FirstOrDefaultAsync(item => item.Token == token);
+
+            if (session == null)
+            {
+                return new UnauthorizedObjectResult(new
+                {
+                    status = false,
+                    message = "Сессия не найдена"
+                });
+            }
+
+            var login = (request.Login ?? "").Trim();
+            var name = (request.Name ?? "").Trim();
+            var currentPassword = request.CurrentPassword ?? "";
+            var newPassword = request.NewPassword ?? "";
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return new BadRequestObjectResult(new
+                {
+                    status = false,
+                    message = "Имя не может быть пустым"
+                });
+            }
+
+            if (name.Length > 150)
+            {
+                return new BadRequestObjectResult(new
+                {
+                    status = false,
+                    message = "Имя не должно превышать 150 символов"
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(login) ||
+                login.Length > 200 ||
+                !MailAddress.TryCreate(login, out var email) ||
+                !email.Address.Equals(login, StringComparison.OrdinalIgnoreCase))
+            {
+                return new BadRequestObjectResult(new
+                {
+                    status = false,
+                    message = "Введите корректный email"
+                });
+            }
+
+            var loginIsTaken = await _context.UserAccounts.AnyAsync(user =>
+                user.Id != session.UserId && user.Login.ToLower() == login.ToLower());
+            if (loginIsTaken)
+            {
+                return new BadRequestObjectResult(new
+                {
+                    status = false,
+                    message = "Пользователь с таким email уже зарегистрирован"
+                });
+            }
+
+            if (!string.IsNullOrEmpty(currentPassword) && string.IsNullOrEmpty(newPassword))
+            {
+                return new BadRequestObjectResult(new
+                {
+                    status = false,
+                    message = "Введите новый пароль"
+                });
+            }
+
+            if (!string.IsNullOrEmpty(newPassword))
+            {
+                if (currentPassword != session.User.Password)
+                {
+                    return new BadRequestObjectResult(new
+                    {
+                        status = false,
+                        message = "Текущий пароль указан неверно"
+                    });
+                }
+
+                if (newPassword.Length < 6)
+                {
+                    return new BadRequestObjectResult(new
+                    {
+                        status = false,
+                        message = "Новый пароль должен содержать не менее 6 символов"
+                    });
+                }
+
+                if (newPassword.Length > 200)
+                {
+                    return new BadRequestObjectResult(new
+                    {
+                        status = false,
+                        message = "Новый пароль не должен превышать 200 символов"
+                    });
+                }
+
+                session.User.Password = newPassword;
+            }
+
+            session.User.Login = login;
+            session.User.Name = name;
+            await _context.SaveChangesAsync();
+
+            return new OkObjectResult(new
+            {
+                status = true,
+                message = "Профиль обновлён"
             });
         }
     }

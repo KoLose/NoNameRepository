@@ -28,34 +28,37 @@ else
     <p>Курс: @lesson.courseName</p>
     <p>Урок @lesson.position</p>
 
-    <section>
-        <h2>Прогресс</h2>
+    @if (AuthService.RoleId == RoleStudent)
+    {
+        <section>
+            <h2>Прогресс</h2>
 
-        @if (isProgressLoading)
-        {
-            <p>Загрузка прогресса...</p>
-        }
-        else
-        {
-            <p>Статус: @progressStatusName</p>
+            @if (isProgressLoading)
+            {
+                <p>Загрузка прогресса...</p>
+            }
+            else
+            {
+                <p>Статус: @progressStatusName</p>
 
-            <button type="button"
-                    @onclick="StartLesson"
-                    disabled="@(isUpdatingProgress || progressStatusId != StatusNotStarted)">
-                Начать урок
-            </button>
-            <button type="button"
-                    @onclick="CompleteLesson"
-                    disabled="@(isUpdatingProgress || progressStatusId != StatusInProgress)">
-                Завершить урок
-            </button>
-        }
+                <button type="button"
+                        @onclick="StartLesson"
+                        disabled="@(isUpdatingProgress || progressStatusId != StatusNotStarted)">
+                    Начать урок
+                </button>
+                <button type="button"
+                        @onclick="CompleteLesson"
+                        disabled="@(isUpdatingProgress || progressStatusId != StatusInProgress)">
+                    Завершить урок
+                </button>
+            }
 
-        @if (!string.IsNullOrWhiteSpace(progressMessage))
-        {
-            <p>@progressMessage</p>
-        }
-    </section>
+            @if (!string.IsNullOrWhiteSpace(progressMessage))
+            {
+                <p>@progressMessage</p>
+            }
+        </section>
+    }
 
     <section>
         <h2>Материал урока</h2>
@@ -201,6 +204,7 @@ else
     private const int StatusNotStarted = 1;
     private const int StatusInProgress = 2;
     private const int StatusCompleted = 3;
+    private const int RoleStudent = 1;
     private const int RoleMentor = 2;
     private const int RoleAdmin = 3;
 
@@ -254,7 +258,8 @@ else
         if (response.status)
         {
             lesson = response.lesson;
-            await LoadProgress();
+            if (AuthService.RoleId == RoleStudent)
+                await LoadProgress();
             await LoadAssignments();
             await LoadComments();
         }
@@ -294,7 +299,7 @@ else
 
     private async Task StartLesson()
     {
-        if (isUpdatingProgress || progressStatusId != StatusNotStarted)
+        if (AuthService.RoleId != RoleStudent || isUpdatingProgress || progressStatusId != StatusNotStarted)
             return;
 
         isUpdatingProgress = true;
@@ -313,7 +318,7 @@ else
 
     private async Task CompleteLesson()
     {
-        if (isUpdatingProgress || progressStatusId != StatusInProgress)
+        if (AuthService.RoleId != RoleStudent || isUpdatingProgress || progressStatusId != StatusInProgress)
             return;
 
         isUpdatingProgress = true;

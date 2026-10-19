@@ -1,0 +1,212 @@
+@page "/mentor/courses"
+@attribute [Authorize(Roles = "2")]
+@using BlazorApp.ApiRequest
+@using BlazorApp.ApiRequest.Models
+@using BlazorApp.Services
+@inject ApiRequest Request
+@inject AuthService AuthService
+
+<PageTitle>Мои курсы</PageTitle>
+
+<h1>Мои курсы</h1>
+<p>Здесь показаны студенты, которые начали хотя бы один урок курса.</p>
+
+@if (isLoading)
+{
+    <p>Загрузка курсов...</p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <p class="text-danger">@errorMessage</p>
+    <button type="button" class="btn btn-primary" @onclick="LoadCourses">Повторить</button>
+}
+else if (courses.Count == 0)
+{
+    <p>У вас пока нет назначенных курсов.</p>
+}
+else
+{
+    @foreach (var course in courses)
+    {
+        <section class="mentor-course-card" @key="course.id">
+            <div class="mentor-course-header">
+                <div>
+                    <h2>@course.name</h2>
+                    <p>@course.description</p>
+                    <p><a href="@($"/courses/{course.id}")">Открыть курс</a></p>
+                </div>
+                <span>Студентов: @course.students.Count</span>
+            </div>
+
+            @if (course.students.Count == 0)
+            {
+                <p>Этот курс ещё никто не начинал.</p>
+            }
+            else
+            {
+                <div class="mentor-message-box">
+                    <label for="@($"message-{course.id}")">Текст сообщения</label>
+                    <textarea id="@($"message-{course.id}")"
+                              class="form-control"
+                              maxlength="2000"
+                              placeholder="Напишите сообщение студенту или всей группе"
+                              value="@GetDraft(course.id)"
+                              @oninput="eventArgs => SetDraft(course.id, eventArgs.Value?.ToString() ?? string.Empty)"
+                              disabled="@IsCourseSending(course.id)"></textarea>
+                    <button type="button"
+                            class="btn btn-primary"
+                            disabled="@IsCourseSending(course.id)"
+                            @onclick="() => SendToIncompleteStudents(course.id)">
+                        @(IsCourseSending(course.id) ? "Отправка..." : "Отправить всем незавершившим")
+                    </button>
+                </div>
+
+                @if (courseMessages.TryGetValue(course.id, out var courseMessage) &&
+                     !string.IsNullOrWhiteSpace(courseMessage))
+                {
+                    <p>@courseMessage</p>
+                }
+
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                        <tr>
+                            <th>Студент</th>
+                            <th>Email</th>
+                            <th>Прогресс</th>
+                            <th>Статус</th>
+                            <th></th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var student in course.students)
+                        {
+                            <tr @key="student.studentId">
+                                <td>@student.name</td>
+                                <td>@student.email</td>
+                                <td>
+                                    @student.completedLessons из @course.totalLessons уроков
+                                    <progress value="@student.percent" max="100">@student.percent%</progress>
+                                    @student.percent%
+                                </td>
+                                <td>@student.statusName</td>
+                                <td>
+                                    <button type="button"
+                                            class="btn btn-outline-primary btn-sm"
+                                            disabled="@IsStudentSending(course.id, student.studentId)"
+                                            @onclick="() => SendToStudent(course.id, student.studentId)">
+                                        @(IsStudentSending(course.id, student.studentId) ? "Отправка..." : "Отправить")
+                                    </button>
+                                    @if (studentMessages.TryGetValue((course.id, student.studentId), out var studentMessage) &&
+                                         !string.IsNullOrWhiteSpace(studentMessage))
+                                    {
+                                        <div class="small">@studentMessage</div>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+}
+
+@code {
+    private List<MentorCourseItem> courses = new();
+    private readonly Dictionary<int, string> drafts = new();
+    private readonly Dictionary<int, string> courseMessages = new();
+    private readonly Dictionary<(int CourseId, int StudentId), string> studentMessages = new();
+    private readonly HashSet<int> sendingCourses = new();
+    private readonly HashSet<(int CourseId, int StudentId)> sendingStudents = new();
+    private string errorMessage = "";
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthService.InitializeAsync();
+        await LoadCourses();
+    }
+
+    private async Task LoadCourses()
+    {
+        isLoading = true;
+        errorMessage = "";
+
+        var response = await Request.GetMentorCourses(AuthService.Token);
+        if (response.status)
+        {
+            courses = response.courses;
+        }
+        else
+        {
+            courses.Clear();
+            errorMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось загрузить курсы наставника."
+                : response.message;
+        }
+
+        isLoading = false;
+    }
+
+    private string GetDraft(int courseId) =>
+        drafts.TryGetValue(courseId, out var text) ? text : "";
+
+    private void SetDraft(int courseId, string text) => drafts[courseId] = text;
+
+    private bool IsCourseSending(int courseId) => sendingCourses.Contains(courseId);
+
+    private bool IsStudentSending(int courseId, int studentId) =>
+        sendingStudents.Contains((courseId, studentId));
+
+    private bool TryGetMessageText(int courseId, out string text)
+    {
+        text = GetDraft(courseId).Trim();
+        if (!string.IsNullOrWhiteSpace(text))
+            return true;
+
+        courseMessages[courseId] = "Введите текст сообщения.";
+        return false;
+    }
+
+    private async Task SendToIncompleteStudents(int courseId)
+    {
+        if (IsCourseSending(courseId) || !TryGetMessageText(courseId, out var text))
+            return;
+
+        sendingCourses.Add(courseId);
+        courseMessages[courseId] = "";
+
+        var response = await Request.SendCourseReminder(
+            courseId,
+            new CourseReminderRequest { text = text },
+            AuthService.Token);
+
+        courseMessages[courseId] = string.IsNullOrWhiteSpace(response.message)
+            ? "Не удалось отправить сообщения."
+            : response.message;
+        sendingCourses.Remove(courseId);
+    }
+
+    private async Task SendToStudent(int courseId, int studentId)
+    {
+        var key = (courseId, studentId);
+        if (IsStudentSending(courseId, studentId) || !TryGetMessageText(courseId, out var text))
+            return;
+
+        sendingStudents.Add(key);
+        studentMessages[key] = "";
+
+        var response = await Request.SendStudentReminder(
+            courseId,
+            studentId,
+            new CourseReminderRequest { text = text },
+            AuthService.Token);
+
+        studentMessages[key] = string.IsNullOrWhiteSpace(response.message)
+            ? "Не удалось отправить сообщение."
+            : response.message;
+        sendingStudents.Remove(key);
+    }
+}
