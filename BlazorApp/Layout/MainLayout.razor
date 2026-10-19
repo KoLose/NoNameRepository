@@ -1,6 +1,4 @@
 ﻿@inherits LayoutComponentBase
-@using BlazorApp.Services
-@inject AuthService AuthService
 
 <div class="page">
     <div class="sidebar">
@@ -17,14 +15,3 @@
         </article>
     </main>
 </div>
-
-@code {
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            await AuthService.InitializeAsync();
-            StateHasChanged();
-        }
-    }
-}
