@@ -6,7 +6,7 @@
 
 <PageTitle>Каталог курсов</PageTitle>
 
-<h1>Каталог курсов</h1>
+<span class="eyebrow">ЗНАНИЯ, КОТОРЫЕ ОТКРЫВАЮТ ВОЗМОЖНОСТИ</span><h1>Каталог курсов</h1><p class="lead">Выберите направление и сделайте следующий шаг в своём развитии.</p>
 
 @if (isLoading)
 {
@@ -23,15 +23,16 @@ else if (courses.Count == 0)
 }
 else
 {
-    @foreach (var course in courses)
+    <div class="course-grid">@foreach (var course in courses)
     {
-        <article @key="course.id">
+        <article class="course-card" @key="course.id"><div class="course-art"><span>◈</span><span>@course.id.ToString("D2")</span></div>
             <h2>@course.name</h2>
             <p>@course.description</p>
             <p>Наставник: @course.mentorName</p>
             <p><a href="@($"/courses/{course.id}")">Открыть курс</a></p>
         </article>
     }
+    </div>
 }
 
 @code {

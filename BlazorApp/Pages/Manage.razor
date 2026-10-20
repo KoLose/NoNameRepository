@@ -1,0 +1,495 @@
+@page "/manage"
+@attribute [Authorize(Roles = "2,3")]
+@using BlazorApp.ApiRequest
+@using BlazorApp.ApiRequest.Models
+@using BlazorApp.Services
+@inject ApiRequest Request
+@inject AuthService AuthService
+@inject IJSRuntime JS
+
+<PageTitle>Управление курсами и уроками</PageTitle>
+
+<h1>Управление курсами и уроками</h1>
+
+@if (isLoading)
+{
+    <p>Загрузка курсов...</p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <p>@errorMessage</p>
+    <button type="button" @onclick="LoadCourses">Повторить</button>
+}
+else
+{
+    <section>
+        <h2>Курс</h2>
+
+        <div>
+            <label for="course-select">Выберите курс</label>
+            <select id="course-select"
+                    value="@courseId"
+                    @onchange="SelectCourse"
+                    disabled="@(isSaving || isLoadingLessons)">
+                <option value="0">Новый курс</option>
+                @foreach (var item in courses)
+                {
+                    <option value="@item.id">@item.name</option>
+                }
+            </select>
+        </div>
+
+        <form @onsubmit="SaveCourse" @onsubmit:preventDefault>
+            <fieldset disabled="@(isSaving || isLoadingLessons)">
+                <div>
+                    <label for="course-name">Название курса</label>
+                    <input id="course-name"
+                           maxlength="200"
+                           @bind="editCourse.name" />
+                </div>
+                <div>
+                    <label for="course-description">Описание</label>
+                    <textarea id="course-description"
+                              @bind="editCourse.description"></textarea>
+                </div>
+
+                @if (AuthService.RoleId == RoleAdmin)
+                {
+                    <div>
+                        <label for="mentor-id">ID наставника</label>
+                        <input id="mentor-id"
+                               type="number"
+                               min="1"
+                               @bind="editCourse.mentorId" />
+                        <p>Укажите ID пользователя с ролью наставника.</p>
+                    </div>
+                }
+
+                <button type="submit">
+                    @(isSaving ? "Сохранение..." : courseId == 0 ? "Создать курс" : "Сохранить изменения")
+                </button>
+            </fieldset>
+        </form>
+
+        @if (courseId > 0)
+        {
+            <p><a href="@($"/courses/{courseId}")">Открыть курс</a></p>
+
+            @if (AuthService.RoleId == RoleAdmin)
+            {
+                <button type="button"
+                        @onclick="DeleteCourse"
+                        disabled="@(isSaving || isLoadingLessons)">
+                    Удалить курс
+                </button>
+            }
+        }
+
+        @if (!string.IsNullOrWhiteSpace(courseActionMessage))
+        {
+            <p>@courseActionMessage</p>
+        }
+    </section>
+
+    <section>
+        <h2>Уроки курса</h2>
+
+        @if (courseId == 0)
+        {
+            <p>Выберите или создайте курс, чтобы добавить уроки.</p>
+        }
+        else if (isLoadingLessons)
+        {
+            <p>Загрузка уроков...</p>
+        }
+        else if (!string.IsNullOrWhiteSpace(lessonsErrorMessage))
+        {
+            <p>@lessonsErrorMessage</p>
+            <button type="button" @onclick="LoadLessons">Повторить</button>
+        }
+        else
+        {
+            <div>
+                <label for="lesson-select">Выберите урок</label>
+                <select id="lesson-select"
+                        value="@lessonId"
+                        @onchange="SelectLesson"
+                        disabled="@isSaving">
+                    <option value="0">Новый урок</option>
+                    @foreach (var item in lessons)
+                    {
+                        <option value="@item.id">@item.position. @item.name</option>
+                    }
+                </select>
+            </div>
+
+            <form @onsubmit="SaveLesson" @onsubmit:preventDefault>
+                <fieldset disabled="@isSaving">
+                    <div>
+                        <label for="lesson-name">Название урока</label>
+                        <input id="lesson-name" @bind="editLesson.name" />
+                    </div>
+                    <div>
+                        <label for="lesson-content">Материал урока</label>
+                        <textarea id="lesson-content"
+                                  rows="7"
+                                  @bind="editLesson.content"></textarea>
+                    </div>
+                    <div>
+                        <label for="lesson-video">Ссылка на видео</label>
+                        <input id="lesson-video"
+                               type="url"
+                               @bind="editLesson.videoUrl" />
+                    </div>
+                    <div>
+                        <label for="lesson-position">Позиция</label>
+                        <input id="lesson-position"
+                               type="number"
+                               min="1"
+                               @bind="editLesson.position" />
+                    </div>
+
+                    <button type="submit">
+                        @(isSaving ? "Сохранение..." : lessonId == 0 ? "Создать урок" : "Сохранить изменения")
+                    </button>
+                </fieldset>
+            </form>
+
+            @if (lessonId > 0)
+            {
+                <p><a href="@($"/lessons/{lessonId}")">Открыть урок и задания</a></p>
+
+                @if (AuthService.RoleId == RoleAdmin)
+                {
+                    <button type="button"
+                            @onclick="DeleteLesson"
+                            disabled="@isSaving">
+                        Удалить урок
+                    </button>
+                }
+            }
+        }
+
+        @if (!string.IsNullOrWhiteSpace(lessonActionMessage))
+        {
+            <p>@lessonActionMessage</p>
+        }
+    </section>
+}
+
+@code {
+    private const int RoleMentor = 2;
+    private const int RoleAdmin = 3;
+
+    private List<CourseItem> courses = new();
+    private List<LessonItem> lessons = new();
+    private CourseDataShort editCourse = new();
+    private LessonDataShort editLesson = new() { position = 1 };
+    private int courseId;
+    private int lessonId;
+    private string errorMessage = "";
+    private string lessonsErrorMessage = "";
+    private string courseActionMessage = "";
+    private string lessonActionMessage = "";
+    private bool isLoading = true;
+    private bool isLoadingLessons;
+    private bool isSaving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthService.InitializeAsync();
+        editCourse.mentorId = AuthService.UserId;
+        await LoadCourses();
+    }
+
+    private async Task LoadCourses()
+    {
+        isLoading = true;
+        errorMessage = "";
+
+        var response = await Request.GetCourses();
+        if (response.status)
+        {
+            courses = response.courses;
+            if (AuthService.RoleId == RoleMentor)
+            {
+                courses = courses
+                    .Where(course => course.mentorId == AuthService.UserId)
+                    .ToList();
+            }
+        }
+        else
+        {
+            courses.Clear();
+            errorMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось загрузить курсы. Проверьте доступность API."
+                : response.message;
+        }
+
+        isLoading = false;
+    }
+
+    private async Task SelectCourse(ChangeEventArgs eventArgs)
+    {
+        if (!int.TryParse(eventArgs.Value?.ToString(), out courseId))
+            return;
+
+        courseActionMessage = "";
+        lessonActionMessage = "";
+        lessonsErrorMessage = "";
+        lessons.Clear();
+        lessonId = 0;
+        editLesson = new LessonDataShort { courseId = courseId, position = 1 };
+
+        var course = courses.FirstOrDefault(item => item.id == courseId);
+        if (course is null)
+        {
+            editCourse = new CourseDataShort { mentorId = AuthService.UserId };
+        }
+        else
+        {
+            editCourse = new CourseDataShort
+            {
+                name = course.name,
+                description = course.description,
+                mentorId = course.mentorId
+            };
+            await LoadLessons();
+        }
+    }
+
+    private async Task LoadLessons()
+    {
+        isLoadingLessons = true;
+        lessonsErrorMessage = "";
+
+        var response = await Request.GetLessonsByCourse(courseId);
+        if (response.status)
+        {
+            lessons = response.lessons.OrderBy(lesson => lesson.position).ToList();
+        }
+        else
+        {
+            lessons.Clear();
+            lessonsErrorMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось загрузить уроки. Проверьте доступность API."
+                : response.message;
+        }
+
+        isLoadingLessons = false;
+    }
+
+    private void SelectLesson(ChangeEventArgs eventArgs)
+    {
+        if (!int.TryParse(eventArgs.Value?.ToString(), out lessonId))
+            return;
+
+        lessonActionMessage = "";
+        var lesson = lessons.FirstOrDefault(item => item.id == lessonId);
+        if (lesson is null)
+        {
+            editLesson = new LessonDataShort
+            {
+                courseId = courseId,
+                position = lessons.Count + 1
+            };
+        }
+        else
+        {
+            editLesson = new LessonDataShort
+            {
+                courseId = courseId,
+                name = lesson.name,
+                content = lesson.content,
+                videoUrl = lesson.videoUrl,
+                position = lesson.position
+            };
+        }
+    }
+
+    private async Task SaveCourse()
+    {
+        if (isSaving || isLoadingLessons)
+            return;
+
+        courseActionMessage = "";
+        if (string.IsNullOrWhiteSpace(editCourse.name) ||
+            string.IsNullOrWhiteSpace(editCourse.description) || editCourse.mentorId <= 0)
+        {
+            courseActionMessage = "Заполните название, описание и ID наставника.";
+            return;
+        }
+
+        editCourse.name = editCourse.name.Trim();
+        editCourse.description = editCourse.description.Trim();
+        isSaving = true;
+
+        try
+        {
+            if (courseId == 0)
+            {
+                var response = await Request.CreateCourse(editCourse, AuthService.Token);
+                if (response.status)
+                {
+                    courseId = response.courseId;
+                    editLesson = new LessonDataShort { courseId = courseId, position = 1 };
+                    await LoadCourses();
+                    courseActionMessage = "Курс создан.";
+                }
+                else
+                {
+                    courseActionMessage = string.IsNullOrWhiteSpace(response.message)
+                        ? "Не удалось создать курс."
+                        : response.message;
+                }
+            }
+            else
+            {
+                var response = await Request.UpdateCourse(courseId, editCourse, AuthService.Token);
+                if (response.status)
+                {
+                    await LoadCourses();
+                    courseActionMessage = "Курс обновлён.";
+                }
+                else
+                {
+                    courseActionMessage = string.IsNullOrWhiteSpace(response.message)
+                        ? "Не удалось обновить курс."
+                        : response.message;
+                }
+            }
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task SaveLesson()
+    {
+        if (isSaving || courseId == 0)
+            return;
+
+        lessonActionMessage = "";
+        if (string.IsNullOrWhiteSpace(editLesson.name) ||
+            string.IsNullOrWhiteSpace(editLesson.content) || editLesson.position <= 0)
+        {
+            lessonActionMessage = "Заполните название, материал и позицию урока.";
+            return;
+        }
+
+        editLesson.courseId = courseId;
+        editLesson.name = editLesson.name.Trim();
+        editLesson.content = editLesson.content.Trim();
+        isSaving = true;
+
+        try
+        {
+            if (lessonId == 0)
+            {
+                var response = await Request.CreateLesson(editLesson, AuthService.Token);
+                if (response.status)
+                {
+                    lessonId = response.lessonId;
+                    await LoadLessons();
+                    lessonActionMessage = "Урок создан.";
+                }
+                else
+                {
+                    lessonActionMessage = string.IsNullOrWhiteSpace(response.message)
+                        ? "Не удалось создать урок."
+                        : response.message;
+                }
+            }
+            else
+            {
+                var response = await Request.UpdateLesson(lessonId, editLesson, AuthService.Token);
+                if (response.status)
+                {
+                    await LoadLessons();
+                    lessonActionMessage = "Урок обновлён.";
+                }
+                else
+                {
+                    lessonActionMessage = string.IsNullOrWhiteSpace(response.message)
+                        ? "Не удалось обновить урок."
+                        : response.message;
+                }
+            }
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteCourse()
+    {
+        if (isSaving || isLoadingLessons || courseId == 0 || AuthService.RoleId != RoleAdmin)
+            return;
+
+        var confirmed = await JS.InvokeAsync<bool>("confirm",
+            $"Удалить курс «{editCourse.name}»? Связанные материалы могут быть удалены.");
+        if (!confirmed)
+            return;
+
+        isSaving = true;
+        courseActionMessage = "";
+
+        try
+        {
+            var response = await Request.DeleteCourse(courseId, AuthService.Token);
+            if (response.status)
+            {
+                await SelectCourse(new ChangeEventArgs { Value = "0" });
+                await LoadCourses();
+                courseActionMessage = "Курс удалён.";
+            }
+            else
+            {
+                courseActionMessage = string.IsNullOrWhiteSpace(response.message)
+                    ? "Не удалось удалить курс."
+                    : response.message;
+            }
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteLesson()
+    {
+        if (isSaving || lessonId == 0 || AuthService.RoleId != RoleAdmin)
+            return;
+
+        var confirmed = await JS.InvokeAsync<bool>("confirm",
+            $"Удалить урок «{editLesson.name}»? Связанные материалы могут быть удалены.");
+        if (!confirmed)
+            return;
+
+        isSaving = true;
+        lessonActionMessage = "";
+
+        try
+        {
+            var response = await Request.DeleteLesson(lessonId, AuthService.Token);
+            if (response.status)
+            {
+                await LoadLessons();
+                SelectLesson(new ChangeEventArgs { Value = "0" });
+                lessonActionMessage = "Урок удалён.";
+            }
+            else
+            {
+                lessonActionMessage = string.IsNullOrWhiteSpace(response.message)
+                    ? "Не удалось удалить урок."
+                    : response.message;
+            }
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}

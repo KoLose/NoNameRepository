@@ -1,0 +1,78 @@
+@page "/answers"
+@attribute [Authorize(Roles = "1")]
+@using BlazorApp.ApiRequest
+@using BlazorApp.ApiRequest.Models
+@using BlazorApp.Services
+@inject ApiRequest Request
+@inject AuthService AuthService
+
+<PageTitle>Мои ответы</PageTitle>
+
+<h1>Мои ответы</h1>
+
+@if (isLoading)
+{
+    <p>Загрузка ответов...</p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <p>@errorMessage</p>
+    <button type="button" @onclick="LoadAnswers">Повторить</button>
+}
+else if (answers.Count == 0)
+{
+    <p>Вы ещё не отправили ни одного ответа.</p>
+    <p><a href="/courses">Перейти к каталогу курсов</a></p>
+}
+else
+{
+    @foreach (var answer in answers)
+    {
+        <article @key="answer.id">
+            <h2>@answer.assignmentName</h2>
+            <p>@answer.content</p>
+            <p>Статус: @answer.statusName</p>
+            <p>Отправлен: @FormatDate(answer.submittedAt)</p>
+            <p><a href="@($"/answers/{answer.id}")">Открыть ответ</a></p>
+            <p><a href="@($"/assignments/{answer.assignmentId}")">Открыть задание</a></p>
+        </article>
+    }
+}
+
+@code {
+    private List<AnswerItem> answers = new();
+    private string errorMessage = "";
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthService.InitializeAsync();
+        await LoadAnswers();
+    }
+
+    private async Task LoadAnswers()
+    {
+        isLoading = true;
+        errorMessage = "";
+
+        var response = await Request.GetMyAnswers(AuthService.Token);
+        if (response.status)
+        {
+            answers = response.answers
+                .OrderByDescending(answer => answer.submittedAt)
+                .ToList();
+        }
+        else
+        {
+            answers.Clear();
+            errorMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось загрузить ответы. Проверьте доступность API."
+                : response.message;
+        }
+
+        isLoading = false;
+    }
+
+    private static string FormatDate(DateTime? date) =>
+        date.HasValue ? date.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") : "—";
+}

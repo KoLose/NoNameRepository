@@ -5,6 +5,8 @@
 @using BlazorApp.Services
 @inject ApiRequest Request
 @inject AuthService AuthService
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
 
 <PageTitle>@(string.IsNullOrWhiteSpace(assignment.name) ? "Задание" : assignment.name)</PageTitle>
 
@@ -27,6 +29,12 @@ else
     <p>Урок: @assignment.lessonName</p>
     <p>@assignment.description</p>
     <p>Максимальный балл: @assignment.maxScore</p>
+
+    @if (AuthService.RoleId == RoleAdmin)
+    {
+        <button class="danger" disabled="@isDeleting" @onclick="DeleteAssignment">Удалить задание</button>
+        @if (!string.IsNullOrWhiteSpace(deleteMessage)) { <p class="notice" role="alert">@deleteMessage</p> }
+    }
 
     @if (CanManageAssignment)
     {
@@ -112,6 +120,8 @@ else
                     <textarea id="answer-content"
                               @bind="answerContent"
                               disabled="@(isSavingAnswer || IsAnswerLocked)"></textarea>
+                    <label for="answer-file">Ссылка на файл (необязательно)</label>
+                    <input id="answer-file" type="url" @bind="answerFile" disabled="@(isSavingAnswer || IsAnswerLocked)" />
                 </div>
 
                 <button type="button"
@@ -161,6 +171,7 @@ else
                         <p>Статус: @item.Answer.statusName</p>
                         <p>Отправлен: @FormatDate(item.Answer.submittedAt)</p>
                         <p>@item.Answer.content</p>
+                        <a href="@($"/answers/{item.Answer.id}")">Открыть карточку ответа →</a>
 
                         <div>
                             <label for="@($"score-{item.Answer.id}")">
@@ -207,6 +218,21 @@ else
     private GradeItem? studentGrade;
     private List<MentorAnswerItem> mentorAnswers = new();
     private string answerContent = "";
+    private string answerFile = "";
+    private string deleteMessage = "";
+    private bool isDeleting;
+
+    private async Task DeleteAssignment()
+    {
+        if (isDeleting || AuthService.RoleId != RoleAdmin) return;
+        if (!await JS.InvokeAsync<bool>("confirm", $"Удалить задание «{assignment.name}»? Связанные ответы и оценки могут быть удалены.")) return;
+        isDeleting = true;
+        try {
+            var result = await Request.DeleteAssignment(Id, AuthService.Token);
+            if (result.status) Navigation.NavigateTo($"/lessons/{assignment.lessonId}");
+            else deleteMessage = string.IsNullOrWhiteSpace(result.message) ? "Не удалось удалить задание." : result.message;
+        } finally { isDeleting = false; }
+    }
     private string errorMessage = "";
     private string studentErrorMessage = "";
     private string mentorErrorMessage = "";
@@ -338,6 +364,7 @@ else
 
         studentAnswer = answersResponse.answers.FirstOrDefault(answer => answer.assignmentId == Id);
         answerContent = studentAnswer?.content ?? "";
+        answerFile = studentAnswer?.fileUrl ?? "";
         studentGrade = null;
 
         if (studentAnswer is not null)
@@ -356,6 +383,12 @@ else
             return;
 
         var content = answerContent.Trim();
+        if (!string.IsNullOrWhiteSpace(answerFile) &&
+            (!Uri.TryCreate(answerFile, UriKind.Absolute, out var fileUri) || fileUri.Scheme is not ("http" or "https")))
+        {
+            answerActionMessage = "Укажите ссылку на файл, начинающуюся с http:// или https://.";
+            return;
+        }
         if (string.IsNullOrWhiteSpace(content))
         {
             answerActionMessage = "Введите текст ответа.";
@@ -369,7 +402,7 @@ else
         {
             assignmentId = Id,
             content = content,
-            fileUrl = studentAnswer?.fileUrl ?? ""
+            fileUrl = answerFile.Trim()
         };
 
         if (studentAnswer is null)

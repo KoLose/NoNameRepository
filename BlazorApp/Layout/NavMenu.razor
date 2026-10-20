@@ -1,92 +1,41 @@
-﻿@using BlazorApp.Services
+@using BlazorApp.Services
 @inject AuthService AuthService
 @inject NavigationManager Navigation
-
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">BlazorApp</a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-    </div>
-</div>
-
-<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
-    <nav class="nav flex-column">
-        <AuthorizeView>
-            <Authorized>
-                @if (AuthService.RoleId == 2)
-                {
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="mentor/courses">
-                            Мои курсы
-                        </NavLink>
-                    </div>
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="mentor/other-courses">
-                            Другие курсы
-                        </NavLink>
-                    </div>
-                }
-                else
-                {
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="courses">
-                            Курсы
-                        </NavLink>
-                    </div>
-                }
-                @if (AuthService.RoleId == 1)
-                {
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="progress">
-                            Мой прогресс
-                        </NavLink>
-                    </div>
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="favorites">
-                            Избранное
-                        </NavLink>
-                    </div>
-                }
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="profile">
-                        Профиль
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <button type="button" class="nav-link" @onclick="Logout">Выйти</button>
-                </div>
-            </Authorized>
-            <NotAuthorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="login">
-                        Вход
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="register">
-                        Регистрация
-                    </NavLink>
-                </div>
-            </NotAuthorized>
-        </AuthorizeView>
-    </nav>
-</div>
-
+<div class="brand"><a href="/">◈ <strong>SkillMate</strong></a><span>ПРОСТРАНСТВО ОБУЧЕНИЯ</span></div>
+<nav aria-label="Основная навигация">
+    <span class="nav-caption">МОЁ ПРОСТРАНСТВО</span>
+    <AuthorizeView>
+        <Authorized>
+            @if (AuthService.RoleId == 2)
+            {
+                <NavLink href="mentor/courses">Мои курсы</NavLink>
+                <NavLink href="mentor/other-courses">Другие курсы</NavLink>
+            }
+            else { <NavLink href="courses">Каталог курсов</NavLink> }
+            @if (AuthService.RoleId == 1)
+            {
+                <NavLink href="progress">Мой прогресс</NavLink>
+                <NavLink href="favorites">Избранное</NavLink>
+                <NavLink href="answers">Мои ответы</NavLink>
+            }
+            <NavLink href="grades">Оценки</NavLink>
+            @if (AuthService.RoleId is 2 or 3)
+            {
+                <span class="nav-caption">ПРЕПОДАВАНИЕ</span>
+                <NavLink href="manage">Управление обучением</NavLink>
+                <NavLink href="directories">Справочники</NavLink>
+            }
+            <span class="nav-caption">АККАУНТ</span>
+            <NavLink href="profile">Мой профиль</NavLink>
+            <button class="logout" @onclick="Logout">Выйти из аккаунта ↗</button>
+        </Authorized>
+        <NotAuthorized>
+            <NavLink href="login">Вход</NavLink>
+            <NavLink href="register">Регистрация</NavLink>
+        </NotAuthorized>
+    </AuthorizeView>
+</nav>
+<div class="sidebar-note">Маленькие шаги.<br /><strong>Большие возможности.</strong></div>
 @code {
-    private bool collapseNavMenu = true;
-
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
-
-    private void ToggleNavMenu()
-    {
-        collapseNavMenu = !collapseNavMenu;
-    }
-
-    private async Task Logout()
-    {
-        await AuthService.LogoutAsync();
-        Navigation.NavigateTo("/login");
-    }
+    private async Task Logout() { await AuthService.LogoutAsync(); Navigation.NavigateTo("/login"); }
 }

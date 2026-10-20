@@ -1,17 +1,9 @@
-﻿@inherits LayoutComponentBase
-
+@inherits LayoutComponentBase
 <div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
-
+    <aside class="sidebar"><NavMenu /></aside>
     <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
+        <header class="top-row"><span>Учись. Практикуйся. Развивайся.</span><a href="/profile">Личный кабинет ↗</a></header>
+        <article class="content">@Body</article>
+        <footer>SkillMate · Образовательная платформа</footer>
     </main>
 </div>

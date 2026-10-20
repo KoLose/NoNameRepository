@@ -26,6 +26,10 @@ else
     <h1>@course.name</h1>
     <p>@course.description</p>
     <p>Наставник: @course.mentorName</p>
+    @if (AuthService.RoleId == 3 || AuthService.RoleId == 2 && course.mentorId == AuthService.UserId)
+    {
+        <p><a href="/manage">Управление курсами и уроками →</a></p>
+    }
 
     @if (CanSendCourseReminder)
     {
