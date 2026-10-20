@@ -16,7 +16,7 @@ namespace WorldSkillsAPI.Controllers
 
         [HttpGet]
         [Route("Roles")]
-        [RoleAuthorized(2, 3)]
+        [RoleAuthorized(3)]
         public async Task<IActionResult> Roles()
         {
             return await _directoryService.GetRolesAsync();
@@ -24,7 +24,7 @@ namespace WorldSkillsAPI.Controllers
 
         [HttpGet]
         [Route("ProgressStatuses")]
-        [RoleAuthorized(2, 3)]
+        [RoleAuthorized(3)]
         public async Task<IActionResult> ProgressStatuses()
         {
             return await _directoryService.GetProgressStatusesAsync();
@@ -32,7 +32,7 @@ namespace WorldSkillsAPI.Controllers
 
         [HttpGet]
         [Route("AnswerStatuses")]
-        [RoleAuthorized(2, 3)]
+        [RoleAuthorized(3)]
         public async Task<IActionResult> AnswerStatuses()
         {
             return await _directoryService.GetAnswerStatusesAsync();
@@ -40,7 +40,7 @@ namespace WorldSkillsAPI.Controllers
 
         [HttpGet]
         [Route("Periodicities")]
-        [RoleAuthorized(2, 3)]
+        [RoleAuthorized(3)]
         public async Task<IActionResult> Periodicities()
         {
             return await _directoryService.GetPeriodicitiesAsync();

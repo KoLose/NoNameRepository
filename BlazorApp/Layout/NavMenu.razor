@@ -23,6 +23,9 @@
             {
                 <span class="nav-caption">ПРЕПОДАВАНИЕ</span>
                 <NavLink href="manage">Управление обучением</NavLink>
+            }
+            @if (AuthService.RoleId == 3)
+            {
                 <NavLink href="directories">Справочники</NavLink>
             }
             <span class="nav-caption">АККАУНТ</span>
