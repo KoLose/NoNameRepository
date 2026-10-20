@@ -1,7 +1,7 @@
 @using BlazorApp.Services
 @inject AuthService AuthService
 @inject NavigationManager Navigation
-<div class="brand"><a href="/">◈ <strong>SkillMate</strong></a><span>ПРОСТРАНСТВО ОБУЧЕНИЯ</span></div>
+<div class="brand"><a href="/">◈ <strong>SkillMate</strong></a></div>
 <nav aria-label="Основная навигация">
     <span class="nav-caption">МОЁ ПРОСТРАНСТВО</span>
     <AuthorizeView>
@@ -38,7 +38,6 @@
         </NotAuthorized>
     </AuthorizeView>
 </nav>
-<div class="sidebar-note">Маленькие шаги.<br /><strong>Большие возможности.</strong></div>
 @code {
     private async Task Logout() { await AuthService.LogoutAsync(); Navigation.NavigateTo("/login"); }
 }

@@ -1,12 +1,9 @@
 .brand { padding: 32px 24px 26px; }
 .brand a { color: #142b30; font-size: 26px; text-decoration: none; letter-spacing: -1px; }
-.brand span { display: block; font-size: 9px; letter-spacing: 1.6px; color: #82918e; margin-top: 8px; }
 nav { display: flex; flex-direction: column; gap: 5px; padding: 0 16px; }
 .nav-caption { padding: 23px 12px 8px; font-size: 10px; font-weight: 700; letter-spacing: 1.7px; color: #86948f; }
 nav ::deep a, .logout { display: block; border-radius: 9px; padding: 12px 14px; text-decoration: none; color: #52645d; font-size: 14px; }
 nav ::deep a:hover { background: #f1f5f2; }
 nav ::deep a.active { color: #17735a; background: #e8f3ec; font-weight: 700; }
 .logout { background: transparent; border: 0; text-align: left; margin-top: 6px; }
-.sidebar-note { margin: 48px 28px 24px; font-size: 13px; line-height: 1.8; color: #88958e; }
-.sidebar-note strong { color: #486357; }
-@media(max-width: 760px) { .brand { padding: 18px 22px; } nav { flex-direction: row; flex-wrap: wrap; padding-bottom: 14px; } .nav-caption, .sidebar-note { display: none; } nav ::deep a, .logout { padding: 8px 12px; } }
+@media(max-width: 760px) { .brand { padding: 18px 22px; } nav { flex-direction: row; flex-wrap: wrap; padding-bottom: 14px; } .nav-caption { display: none; } nav ::deep a, .logout { padding: 8px 12px; } }
