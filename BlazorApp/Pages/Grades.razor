@@ -1,0 +1,99 @@
+@page "/grades"
+@attribute [Authorize]
+@using BlazorApp.ApiRequest
+@using BlazorApp.ApiRequest.Models
+@using BlazorApp.Services
+@inject ApiRequest Request
+@inject AuthService AuthService
+
+<PageTitle>Оценки</PageTitle>
+
+<h1>@(AuthService.RoleId == RoleStudent ? "Мои оценки" : "Журнал оценок")</h1>
+
+@if (isLoading)
+{
+    <p>Загрузка оценок...</p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <p>@errorMessage</p>
+    <button type="button" @onclick="LoadGrades">Повторить</button>
+}
+else if (grades.Count == 0)
+{
+    <p>Оценок пока нет.</p>
+    <p><a href="/courses">Перейти к каталогу курсов</a></p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Задание</th>
+                    <th>Балл</th>
+                    <th>Наставник</th>
+                    <th>Дата проверки</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var grade in grades)
+                {
+                    <tr @key="grade.id">
+                        <td>@grade.assignmentName</td>
+                        <td>@grade.score</td>
+                        <td>@(string.IsNullOrWhiteSpace(grade.mentorName) ? "Вы" : grade.mentorName)</td>
+                        <td>@FormatDate(grade.gradedAt)</td>
+                        <td>
+                            <a href="@($"/assignments/{grade.assignmentId}")">Открыть задание</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private const int RoleStudent = 1;
+
+    private List<GradeItem> grades = new();
+    private string errorMessage = "";
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthService.InitializeAsync();
+        await LoadGrades();
+    }
+
+    private async Task LoadGrades()
+    {
+        isLoading = true;
+        errorMessage = "";
+
+        var response = AuthService.RoleId == RoleStudent
+            ? await Request.GetMyScores(AuthService.Token)
+            : await Request.GetMyGrades(AuthService.Token);
+
+        if (response.status)
+        {
+            grades = response.grades
+                .OrderByDescending(grade => grade.gradedAt)
+                .ToList();
+        }
+        else
+        {
+            grades.Clear();
+            errorMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось загрузить оценки. Проверьте доступность API."
+                : response.message;
+        }
+
+        isLoading = false;
+    }
+
+    private static string FormatDate(DateTime? date) =>
+        date.HasValue ? date.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") : "—";
+}

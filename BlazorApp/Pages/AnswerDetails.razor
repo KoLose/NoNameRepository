@@ -1,0 +1,88 @@
+@page "/answers/{Id:int}"
+@attribute [Authorize]
+@using BlazorApp.ApiRequest
+@using BlazorApp.ApiRequest.Models
+@using BlazorApp.Services
+@inject ApiRequest Request
+@inject AuthService AuthService
+
+<PageTitle>Ответ</PageTitle>
+
+@if (isLoading)
+{
+    <h1>Ответ</h1>
+    <p>Загрузка ответа...</p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <h1>Ответ</h1>
+    <p>@errorMessage</p>
+    <button type="button" @onclick="LoadAnswer">Повторить</button>
+}
+else
+{
+    <p><a href="@($"/assignments/{answer.assignmentId}")">Назад к заданию</a></p>
+    <h1>@answer.assignmentName</h1>
+    <p>Студент: @answer.userName</p>
+    <p>Статус: @answer.statusName</p>
+    <p>Отправлен: @FormatDate(answer.submittedAt)</p>
+
+    <section>
+        <h2>Текст ответа</h2>
+        <p>@answer.content</p>
+
+        @if (HasFileLink)
+        {
+            <p>
+                <a href="@answer.fileUrl" target="_blank" rel="noopener noreferrer">
+                    Открыть приложенный файл
+                </a>
+            </p>
+        }
+    </section>
+
+    <p><a href="@($"/assignments/{answer.assignmentId}")">Открыть задание и оценку</a></p>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private AnswerItem answer = new();
+    private string errorMessage = "";
+    private bool isLoading = true;
+
+    private bool HasFileLink =>
+        Uri.TryCreate(answer.fileUrl, UriKind.Absolute, out var fileUri) &&
+        (fileUri.Scheme == "https" || fileUri.Scheme == "http");
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await AuthService.InitializeAsync();
+        await LoadAnswer();
+    }
+
+    private async Task LoadAnswer()
+    {
+        isLoading = true;
+        errorMessage = "";
+
+        var response = await Request.GetAnswer(Id, AuthService.Token);
+        if (response.status)
+        {
+            answer = response.answer;
+        }
+        else
+        {
+            answer = new AnswerItem();
+            errorMessage = string.IsNullOrWhiteSpace(response.message)
+                ? "Не удалось загрузить ответ. Проверьте доступность API и права доступа."
+                : response.message;
+        }
+
+        isLoading = false;
+    }
+
+    private static string FormatDate(DateTime? date) =>
+        date.HasValue ? date.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") : "—";
+}

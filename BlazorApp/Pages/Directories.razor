@@ -1,0 +1,84 @@
+@page "/directories"
+@attribute [Authorize(Roles = "2,3")]
+@using BlazorApp.ApiRequest
+@using BlazorApp.ApiRequest.Models
+@using BlazorApp.Services
+@inject ApiRequest Request
+@inject AuthService AuthService
+
+<PageTitle>Справочники</PageTitle>
+
+<h1>Справочники</h1>
+
+@if (isLoading)
+{
+    <p>Загрузка справочников...</p>
+}
+else
+{
+    <button type="button" @onclick="LoadDirectories">Обновить</button>
+
+    @foreach (var directory in directories)
+    {
+        <section @key="directory.Key">
+            <h2>@directory.Key</h2>
+
+            @if (!directory.Value.status)
+            {
+                <p>
+                    @(string.IsNullOrWhiteSpace(directory.Value.message)
+                        ? "Не удалось загрузить справочник. Проверьте доступность API."
+                        : directory.Value.message)
+                </p>
+            }
+            else if (directory.Value.items.Count == 0)
+            {
+                <p>Значений пока нет.</p>
+            }
+            else
+            {
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Код</th>
+                            <th>Название</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in directory.Value.items)
+                        {
+                            <tr @key="item.id">
+                                <td>@item.id</td>
+                                <td>@item.name</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </section>
+    }
+}
+
+@code {
+    private Dictionary<string, DirectoryData> directories = new();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthService.InitializeAsync();
+        await LoadDirectories();
+    }
+
+    private async Task LoadDirectories()
+    {
+        isLoading = true;
+        directories.Clear();
+
+        directories["Роли пользователей"] = await Request.GetRoles(AuthService.Token);
+        directories["Статусы прогресса"] = await Request.GetProgressStatuses(AuthService.Token);
+        directories["Статусы ответов"] = await Request.GetAnswerStatuses(AuthService.Token);
+        directories["Периодичность"] = await Request.GetPeriodicities(AuthService.Token);
+
+        isLoading = false;
+    }
+}
